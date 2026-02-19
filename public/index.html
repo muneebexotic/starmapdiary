@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Star Map Diary</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hint">Drag to orbit | Scroll to zoom | Hover and click stars to read entries</div>
+
+  <div id="auth-panel">
+    <div id="auth-row">
+      <input id="email-input" class="auth-input" type="email" autocomplete="email" placeholder="Email" />
+      <input id="password-input" class="auth-input" type="password" autocomplete="current-password" placeholder="Password" />
+    </div>
+    <div id="auth-actions">
+      <button id="signup-btn" class="auth-btn" type="button">Sign Up</button>
+      <button id="login-btn" class="auth-btn" type="button">Log In</button>
+      <button id="logout-btn" class="auth-btn" type="button">Log Out</button>
+    </div>
+    <p id="auth-status">Not signed in.</p>
+  </div>
+
+  <div id="tooltip" aria-hidden="true"></div>
+
+  <div id="ui-panel">
+    <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
+    <button id="submit-btn" type="button">Add Star</button>
+  </div>
+
+  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div id="modal-card">
+      <div id="modal-header">
+        <h2 id="modal-title">Journal Entry</h2>
+        <button id="close-modal" type="button">Close</button>
+      </div>
+      <p id="entry-meta"></p>
+      <p id="entry-full"></p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

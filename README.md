@@ -30,6 +30,19 @@ npm start
 ```
 Open `http://localhost:3000`.
 
+## Project structure
+- `src/`: backend app layers
+- `src/config`: environment parsing and validation
+- `src/lib`: Supabase client factories/helpers
+- `src/middleware`: cross-cutting request middleware
+- `src/domain`: domain validation/normalization logic
+- `src/routes`: API route modules by bounded context
+- `public/`: frontend static assets served by Express
+- `public/js`: browser code split by concern (`config`, `services`, `features`, `three`)
+- `public/styles`: CSS assets
+
+This separation keeps transport, business rules, and infrastructure decoupled, so features can be changed without rewriting unrelated layers.
+
 ## 4) Supabase MCP
 Installed package:
 - `@supabase/mcp-server-supabase`

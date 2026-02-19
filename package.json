@@ -2,10 +2,10 @@
   "name": "p2",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "mcp:supabase": "mcp-server-supabase --project-ref %SUPABASE_PROJECT_REF%"
   },
   "keywords": [],

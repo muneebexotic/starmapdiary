@@ -1,0 +1,208 @@
+import { API_BASE, AUTH_TOKEN_KEY, ENTRY_MAX_LENGTH } from "./config/constants.js";
+import { SENTIMENT_CONFIG } from "./config/sentiment.js";
+import { classifySentiment } from "./features/sentiment.js";
+import { ApiClient } from "./services/api-client.js";
+import { formatDate } from "./utils/formatters.js";
+import { SceneManager } from "./three/scene-manager.js";
+
+const elements = {
+  app: document.getElementById("app"),
+  tooltip: document.getElementById("tooltip"),
+  input: document.getElementById("entry-input"),
+  submitBtn: document.getElementById("submit-btn"),
+  emailInput: document.getElementById("email-input"),
+  passwordInput: document.getElementById("password-input"),
+  signupBtn: document.getElementById("signup-btn"),
+  loginBtn: document.getElementById("login-btn"),
+  logoutBtn: document.getElementById("logout-btn"),
+  authStatus: document.getElementById("auth-status"),
+  modal: document.getElementById("modal"),
+  closeModalBtn: document.getElementById("close-modal"),
+  entryMeta: document.getElementById("entry-meta"),
+  entryFull: document.getElementById("entry-full")
+};
+
+const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
+const state = {
+  activeUser: null
+};
+
+const scene = new SceneManager({
+  container: elements.app,
+  tooltip: elements.tooltip,
+  onStarSelected: openModalForEntry
+});
+
+wireEvents();
+bootstrap();
+
+function wireEvents() {
+  elements.submitBtn.addEventListener("click", handleSubmit);
+  elements.signupBtn.addEventListener("click", handleSignup);
+  elements.loginBtn.addEventListener("click", handleLogin);
+  elements.logoutBtn.addEventListener("click", handleLogout);
+
+  elements.input.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      handleSubmit();
+    }
+  });
+
+  elements.closeModalBtn.addEventListener("click", closeModal);
+  elements.modal.addEventListener("click", (event) => {
+    if (event.target === elements.modal) closeModal();
+  });
+}
+
+async function bootstrap() {
+  setSignedInState(false);
+
+  if (!api.token) return;
+
+  try {
+    const me = await api.get("/auth/me");
+    state.activeUser = me;
+    setSignedInState(true);
+    await loadEntriesFromServer();
+  } catch (_error) {
+    api.clearToken();
+    state.activeUser = null;
+    setStatus("Session expired. Please log in.");
+  }
+}
+
+async function handleSignup() {
+  const email = elements.emailInput.value.trim();
+  const password = elements.passwordInput.value;
+
+  if (!email || !password) {
+    setStatus("Email and password are required.");
+    return;
+  }
+
+  try {
+    const response = await api.post("/auth/signup", { email, password }, { auth: false });
+
+    if (!response.session?.access_token) {
+      setStatus("Signup succeeded. Check email confirmation before login.");
+      return;
+    }
+
+    api.token = response.session.access_token;
+    state.activeUser = response.user || null;
+    setSignedInState(true);
+    await loadEntriesFromServer();
+    setStatus("Signed up and logged in.");
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+async function handleLogin() {
+  const email = elements.emailInput.value.trim();
+  const password = elements.passwordInput.value;
+
+  if (!email || !password) {
+    setStatus("Email and password are required.");
+    return;
+  }
+
+  try {
+    const response = await api.post("/auth/login", { email, password }, { auth: false });
+    api.token = response.session.access_token;
+    state.activeUser = response.user || null;
+
+    setSignedInState(true);
+    await loadEntriesFromServer();
+    setStatus("Logged in.");
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+function handleLogout() {
+  api.clearToken();
+  state.activeUser = null;
+  scene.clearEntries();
+  setSignedInState(false);
+  setStatus("Logged out.");
+}
+
+async function loadEntriesFromServer() {
+  const payload = await api.get("/entries");
+
+  scene.clearEntries();
+
+  for (let i = 0; i < payload.entries.length; i += 1) {
+    const entry = payload.entries[i];
+    if (!entry.position || typeof entry.position.x !== "number") {
+      entry.position = scene.getSuggestedPosition(entry.sentiment, entry.createdAt);
+    }
+    scene.addEntry(entry);
+  }
+}
+
+async function handleSubmit() {
+  if (!api.token) {
+    setStatus("Please log in first.");
+    return;
+  }
+
+  const text = elements.input.value.trim();
+  if (!text) return;
+
+  if (text.length > ENTRY_MAX_LENGTH) {
+    setStatus(`Entry must be at most ${ENTRY_MAX_LENGTH} characters.`);
+    return;
+  }
+
+  const sentiment = classifySentiment(text);
+  const createdAt = new Date().toISOString();
+
+  const draftEntry = {
+    text,
+    sentiment,
+    createdAt,
+    position: scene.getSuggestedPosition(sentiment, createdAt)
+  };
+
+  try {
+    const response = await api.post("/entries", draftEntry);
+    scene.addEntry(response.entry);
+    setStatus("Entry saved.");
+    elements.input.value = "";
+  } catch (error) {
+    setStatus(error.message);
+  }
+}
+
+function openModalForEntry(entry) {
+  const sentimentMeta = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
+  elements.entryMeta.textContent = `${sentimentMeta.label} | ${formatDate(entry.createdAt)}`;
+  elements.entryFull.textContent = entry.text;
+  elements.modal.classList.add("open");
+}
+
+function closeModal() {
+  elements.modal.classList.remove("open");
+}
+
+function setSignedInState(signedIn) {
+  elements.submitBtn.disabled = !signedIn;
+  elements.input.disabled = !signedIn;
+  elements.emailInput.disabled = signedIn;
+  elements.passwordInput.disabled = signedIn;
+  elements.signupBtn.disabled = signedIn;
+  elements.loginBtn.disabled = signedIn;
+  elements.logoutBtn.disabled = !signedIn;
+
+  if (signedIn && state.activeUser?.email) {
+    setStatus(`Signed in as ${state.activeUser.email}`);
+  } else if (!signedIn) {
+    setStatus("Not signed in.");
+  }
+}
+
+function setStatus(message) {
+  elements.authStatus.textContent = message;
+}
