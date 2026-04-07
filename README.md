@@ -70,5 +70,14 @@ with env var `SUPABASE_ACCESS_TOKEN` set.
   - `POST /api/reminders/push/subscribe`
   - `POST /api/reminders/push/unsubscribe`
   - `POST|GET /api/cron/reminders-dispatch` (protected by cron secret)
-- Vercel Cron is configured in `vercel.json` to run every 15 minutes.
-- For production, set `CRON_SECRET` in Vercel so cron requests are authorized.
+- For production, set `CRON_SECRET` in Vercel so scheduler requests are authorized.
+
+### External Scheduler (cron-job.org)
+Use cron-job.org to trigger reminders every 15 minutes on Vercel Hobby:
+- URL: `https://YOUR_DOMAIN/api/cron/reminders-dispatch`
+- Method: `POST`
+- Header: `Authorization: Bearer YOUR_CRON_SECRET`
+- Schedule: every 15 minutes
+
+After setup, trigger one manual run and verify response includes:
+- `{ "ok": true, "counters": ... }`
