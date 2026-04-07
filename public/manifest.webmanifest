@@ -1,0 +1,9 @@
+{
+  "name": "Star Map Diary",
+  "short_name": "Star Diary",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#03050f",
+  "theme_color": "#03050f",
+  "description": "A personal journal rendered as a living constellation."
+}

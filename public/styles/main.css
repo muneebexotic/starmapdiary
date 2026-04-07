@@ -108,6 +108,47 @@ body {
   white-space: normal;
 }
 
+#reminder-banner {
+  position: fixed;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 780px);
+  background: rgba(16, 22, 38, 0.92);
+  border: 1px solid rgba(245, 201, 106, 0.45);
+  border-radius: 10px;
+  padding: 10px 12px;
+  z-index: 24;
+  display: none;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+#reminder-banner.open {
+  display: grid;
+}
+
+#reminder-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#reminder-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#ios-install-hint {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 #modal {
   position: fixed;
   inset: 0;
@@ -250,6 +291,11 @@ body {
 }
 
 @media (max-width: 640px) {
+  #reminder-banner {
+    grid-template-columns: 1fr;
+    top: 56px;
+  }
+
   #ui-panel {
     grid-template-columns: 1fr;
   }

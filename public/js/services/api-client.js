@@ -50,4 +50,8 @@ export class ApiClient {
   post(path, body, options = {}) {
     return this.request("POST", path, { ...options, body });
   }
+
+  put(path, body, options = {}) {
+    return this.request("PUT", path, { ...options, body });
+  }
 }

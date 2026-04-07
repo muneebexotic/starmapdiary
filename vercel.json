@@ -10,6 +10,12 @@
       "use": "@vercel/static"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/reminders-dispatch",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

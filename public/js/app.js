@@ -1,6 +1,7 @@
 import { API_BASE, AUTH_TOKEN_KEY, ENTRY_MAX_LENGTH } from "./config/constants.js";
 import { SENTIMENT_CONFIG } from "./config/sentiment.js";
 import { classifySentiment } from "./features/sentiment.js";
+import { ReminderManager } from "./features/reminders.js";
 import { ApiClient } from "./services/api-client.js";
 import { formatDate } from "./utils/formatters.js";
 import { SceneManager } from "./three/scene-manager.js";
@@ -16,6 +17,10 @@ const elements = {
   loginBtn: document.getElementById("login-btn"),
   logoutBtn: document.getElementById("logout-btn"),
   authStatus: document.getElementById("auth-status"),
+  reminderBanner: document.getElementById("reminder-banner"),
+  reminderText: document.getElementById("reminder-text"),
+  enablePushBtn: document.getElementById("enable-push-btn"),
+  iosInstallHint: document.getElementById("ios-install-hint"),
   modal: document.getElementById("modal"),
   closeModalBtn: document.getElementById("close-modal"),
   entryMeta: document.getElementById("entry-meta"),
@@ -31,6 +36,12 @@ const scene = new SceneManager({
   container: elements.app,
   tooltip: elements.tooltip,
   onStarSelected: openModalForEntry
+});
+
+const reminders = new ReminderManager({
+  api,
+  elements,
+  setStatus
 });
 
 wireEvents();
@@ -64,9 +75,11 @@ async function bootstrap() {
     state.activeUser = me;
     setSignedInState(true);
     await loadEntriesFromServer();
+    await reminders.start();
   } catch (_error) {
     api.clearToken();
     state.activeUser = null;
+    reminders.stop();
     setStatus("Session expired. Please log in.");
   }
 }
@@ -92,6 +105,7 @@ async function handleSignup() {
     state.activeUser = response.user || null;
     setSignedInState(true);
     await loadEntriesFromServer();
+    await reminders.start();
     setStatus("Signed up and logged in.");
   } catch (error) {
     setStatus(error.message);
@@ -114,6 +128,7 @@ async function handleLogin() {
 
     setSignedInState(true);
     await loadEntriesFromServer();
+    await reminders.start();
     setStatus("Logged in.");
   } catch (error) {
     setStatus(error.message);
@@ -124,6 +139,7 @@ function handleLogout() {
   api.clearToken();
   state.activeUser = null;
   scene.clearEntries();
+  reminders.stop();
   setSignedInState(false);
   setStatus("Logged out.");
 }
@@ -169,6 +185,7 @@ async function handleSubmit() {
   try {
     const response = await api.post("/entries", draftEntry);
     scene.addEntry(response.entry);
+    await reminders.onEntrySaved();
     setStatus("Entry saved.");
     elements.input.value = "";
   } catch (error) {

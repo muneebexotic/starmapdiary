@@ -16,8 +16,14 @@ This setup uses:
 2. Fill values:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (required for cron reminder dispatch)
    - `SUPABASE_PROJECT_REF`
    - `SUPABASE_ACCESS_TOKEN` (for MCP tooling)
+   - `CRON_SECRET`
+   - `VAPID_PUBLIC_KEY`
+   - `VAPID_PRIVATE_KEY`
+   - `VAPID_SUBJECT`
+   - `REMINDERS_ENABLED=true|false`
 
 ## 2) Apply DB schema
 Run SQL in Supabase SQL editor (or via MCP):
@@ -55,3 +61,14 @@ Run manually:
 npx -y @supabase/mcp-server-supabase@latest --project-ref YOUR_PROJECT_REF
 ```
 with env var `SUPABASE_ACCESS_TOKEN` set.
+
+## 5) Reminder System
+- APIs:
+  - `GET /api/reminders/status`
+  - `PUT /api/reminders/settings`
+  - `GET /api/reminders/push/public-key`
+  - `POST /api/reminders/push/subscribe`
+  - `POST /api/reminders/push/unsubscribe`
+  - `POST|GET /api/cron/reminders-dispatch` (protected by cron secret)
+- Vercel Cron is configured in `vercel.json` to run every 15 minutes.
+- For production, set `CRON_SECRET` in Vercel so cron requests are authorized.

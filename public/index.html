@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#03050f" />
   <title>Star Map Diary</title>
   <link rel="stylesheet" href="/styles/main.css" />
+  <link rel="manifest" href="/manifest.webmanifest" />
 </head>
 <body>
   <div id="app"></div>
@@ -25,6 +27,16 @@
   </div>
 
   <div id="tooltip" aria-hidden="true"></div>
+
+  <div id="reminder-banner" aria-live="polite">
+    <p id="reminder-text"></p>
+    <div id="reminder-actions">
+      <button id="enable-push-btn" class="auth-btn" type="button">Enable Push Reminders</button>
+    </div>
+    <p id="ios-install-hint">
+      On iPhone/iPad: tap Share, then Add to Home Screen to allow web push reminders.
+    </p>
+  </div>
 
   <div id="ui-panel">
     <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
