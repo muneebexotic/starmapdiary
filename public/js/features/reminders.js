@@ -118,17 +118,20 @@ export class ReminderManager {
       return;
     }
 
-    this.elements.reminderText.textContent = "Today's entry is still pending. Add one entry to stop reminders for today.";
+    this.elements.reminderText.textContent = "You have not added today's entry yet. Add one entry to stop reminders for the day.";
     this.elements.reminderBanner.classList.add("open");
 
     const pushSupported = isPushSupported();
     const permission = pushSupported ? Notification.permission : "denied";
     const shouldShowEnablePush = pushSupported && permission !== "granted";
+    const iosNeedsInstallHint = isIos() && !isStandalone();
 
     this.elements.enablePushBtn.hidden = !shouldShowEnablePush;
     this.elements.enablePushBtn.disabled = !shouldShowEnablePush;
+    this.elements.enablePushBtn.textContent = iosNeedsInstallHint
+      ? "Install + Enable Notifications"
+      : "Enable Notifications";
 
-    const iosNeedsInstallHint = isIos() && !isStandalone();
     this.elements.iosInstallHint.hidden = !iosNeedsInstallHint;
   }
 
