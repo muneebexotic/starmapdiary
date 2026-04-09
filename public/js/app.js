@@ -58,6 +58,7 @@ function wireEvents() {
       handleSubmit();
     }
   });
+  elements.input.addEventListener("input", syncEntryInputHeight);
 
   elements.closeModalBtn.addEventListener("click", closeModal);
   elements.modal.addEventListener("click", (event) => {
@@ -67,6 +68,7 @@ function wireEvents() {
 
 async function bootstrap() {
   setSignedInState(false);
+  syncEntryInputHeight();
 
   if (!api.token) return;
 
@@ -188,6 +190,7 @@ async function handleSubmit() {
     await reminders.onEntrySaved();
     setStatus("Entry saved.");
     elements.input.value = "";
+    syncEntryInputHeight();
   } catch (error) {
     setStatus(error.message);
   }
@@ -222,4 +225,18 @@ function setSignedInState(signedIn) {
 
 function setStatus(message) {
   elements.authStatus.textContent = message;
+}
+
+function syncEntryInputHeight() {
+  const input = elements.input;
+  if (!input) return;
+
+  const computed = window.getComputedStyle(input);
+  const composeHeight = Number.parseFloat(computed.getPropertyValue("--compose-height")) || 64;
+  const maxHeight = Number.parseFloat(computed.maxHeight) || 180;
+
+  input.style.height = `${composeHeight}px`;
+  const nextHeight = Math.min(maxHeight, Math.max(composeHeight, input.scrollHeight));
+  input.style.height = `${nextHeight}px`;
+  input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
 }
