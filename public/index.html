@@ -28,17 +28,23 @@
 
   <div id="tooltip" aria-hidden="true"></div>
 
-  <div id="reminder-banner" aria-live="polite">
-    <p id="reminder-text"></p>
-    <div id="reminder-actions">
-      <button id="enable-push-btn" class="auth-btn" type="button">Enable Push Reminders</button>
-    </div>
-    <p id="ios-install-hint">
-      On iPhone/iPad: tap Share, then Add to Home Screen to allow web push reminders.
-    </p>
-  </div>
-
   <div id="ui-panel">
+    <div id="reminder-banner" aria-live="polite">
+      <div id="reminder-head">
+        <span id="reminder-dot" aria-hidden="true"></span>
+        <div id="reminder-copy">
+          <p id="reminder-kicker">Daily Reminder</p>
+          <p id="reminder-text"></p>
+        </div>
+      </div>
+      <div id="reminder-actions">
+        <button id="enable-push-btn" class="auth-btn" type="button">Enable Notifications</button>
+      </div>
+      <p id="ios-install-hint">
+        iPhone/iPad: tap Share, then Add to Home Screen to allow web push reminders.
+      </p>
+    </div>
+
     <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
     <button id="submit-btn" type="button">Add Star</button>
   </div>
