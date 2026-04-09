@@ -31,11 +31,7 @@
   <div id="ui-panel">
     <div id="reminder-banner" aria-live="polite">
       <div id="reminder-head">
-        <span id="reminder-dot" aria-hidden="true"></span>
-        <div id="reminder-copy">
-          <p id="reminder-kicker">Daily Reminder</p>
-          <p id="reminder-text"></p>
-        </div>
+        <p id="reminder-text"></p>
       </div>
       <div id="reminder-actions">
         <button id="enable-push-btn" class="auth-btn" type="button">Enable Notifications</button>
@@ -45,15 +41,25 @@
       </p>
     </div>
 
-    <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
-    <button id="submit-btn" type="button">Add Star</button>
+    <div id="entry-compose">
+      <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
+      <button id="submit-btn" type="button" aria-label="Add Star">
+        <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div id="modal-card">
       <div id="modal-header">
         <h2 id="modal-title">Journal Entry</h2>
-        <button id="close-modal" type="button">Close</button>
+        <button id="close-modal" type="button" aria-label="Close entry">
+          <svg class="close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       </div>
       <p id="entry-meta"></p>
       <p id="entry-full"></p>
