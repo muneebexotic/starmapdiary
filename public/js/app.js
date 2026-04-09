@@ -9,6 +9,7 @@ import { SceneManager } from "./three/scene-manager.js";
 const elements = {
   app: document.getElementById("app"),
   tooltip: document.getElementById("tooltip"),
+  authPanel: document.getElementById("auth-panel"),
   input: document.getElementById("entry-input"),
   submitBtn: document.getElementById("submit-btn"),
   emailInput: document.getElementById("email-input"),
@@ -208,6 +209,7 @@ function closeModal() {
 }
 
 function setSignedInState(signedIn) {
+  elements.authPanel.classList.toggle("signed-in", signedIn);
   elements.submitBtn.disabled = !signedIn;
   elements.input.disabled = !signedIn;
   elements.emailInput.disabled = signedIn;
