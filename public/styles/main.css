@@ -6,6 +6,14 @@
   --muted: rgba(220, 228, 242, 0.68);
   --button: #d9deec;
   --button-text: #0f1524;
+  --button-theme-bg: linear-gradient(160deg, rgba(245, 201, 106, 0.95), rgba(214, 227, 255, 0.9));
+  --button-theme-bg-hover: linear-gradient(160deg, rgba(251, 208, 118, 0.98), rgba(222, 233, 255, 0.94));
+  --button-theme-border: rgba(255, 255, 255, 0.22);
+  --button-theme-border-hover: rgba(255, 255, 255, 0.3);
+  --button-theme-text: #0f1524;
+  --button-theme-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  --button-theme-shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.4);
+  --button-theme-hover-opacity: 0.96;
   --radius-panel: 26px;
   --radius-card: 24px;
   --radius-control: 20px;
@@ -94,6 +102,26 @@ body {
   border: 1px solid rgba(8, 12, 22, 0.45);
 }
 
+#submit-btn,
+.auth-btn,
+#close-modal {
+  border: 1px solid var(--button-theme-border);
+  background: var(--button-theme-bg);
+  color: var(--button-theme-text);
+  box-shadow: var(--button-theme-shadow);
+  transition: transform 0.2s ease, opacity 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+#submit-btn:hover,
+.auth-btn:hover,
+#close-modal:hover {
+  transform: translateY(-1px);
+  opacity: var(--button-theme-hover-opacity);
+  background: var(--button-theme-bg-hover);
+  border-color: var(--button-theme-border-hover);
+  box-shadow: var(--button-theme-shadow-hover);
+}
+
 #submit-btn {
   position: absolute;
   right: 12px;
@@ -102,20 +130,9 @@ body {
   height: 40px;
   padding: 0;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: linear-gradient(160deg, rgba(245, 201, 106, 0.95), rgba(214, 227, 255, 0.9));
-  color: #0f1524;
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
-  transition: transform 0.2s ease, opacity 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-#submit-btn:hover {
-  transform: translateY(-1px);
-  opacity: 0.96;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
 }
 
 .submit-icon {
@@ -325,19 +342,6 @@ body {
   justify-self: end;
 }
 
-#enable-push-btn {
-  border-color: rgba(245, 201, 106, 0.52);
-  background: rgba(250, 225, 170, 0.96);
-  color: #261b08;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-  border-radius: var(--radius-pill);
-}
-
-#enable-push-btn:hover {
-  transform: translateY(-1px);
-  opacity: 0.96;
-}
-
 #ios-install-hint {
   grid-column: 1 / -1;
   margin: 1px 0 0;
@@ -386,9 +390,6 @@ body {
 }
 
 #close-modal {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(14, 20, 34, 0.62);
-  color: var(--text);
   border-radius: var(--radius-pill);
   width: 30px;
   height: 30px;
@@ -396,13 +397,6 @@ body {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-
-#close-modal:hover {
-  transform: translateY(-1px);
-  background: rgba(20, 28, 46, 0.78);
-  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .close-icon {
@@ -486,9 +480,6 @@ body {
 .auth-btn {
   height: 30px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.92);
-  color: #101828;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -496,9 +487,6 @@ body {
 }
 
 #logout-btn {
-  background: transparent;
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
   margin-left: auto;
 }
 
@@ -534,11 +522,6 @@ body {
   margin-left: 0;
   height: 36px;
   padding: 0 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.26);
-  background: rgba(10, 15, 26, 0.82);
-  color: var(--text);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 640px) {
