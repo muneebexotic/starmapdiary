@@ -56,6 +56,20 @@
     </div>
   </div>
 
+  <button id="focus-toggle-btn" class="auth-btn" type="button" aria-pressed="false" aria-label="Hide writing controls for full galaxy view">
+    <svg class="focus-icon focus-hide-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 9l7 7 7-7" />
+    </svg>
+    <svg class="focus-icon focus-show-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 15l7-7 7 7" />
+    </svg>
+  </button>
+
+  <div id="focus-tip" role="status" aria-live="polite" hidden>
+    <p id="focus-tip-text">Tip: Use Focus View to hide the writing controls and enjoy a full galaxy canvas.</p>
+    <button id="focus-tip-close" class="auth-btn" type="button">Got it</button>
+  </div>
+
   <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div id="modal-card">
       <div id="modal-header">

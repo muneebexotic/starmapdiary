@@ -10,9 +10,13 @@ const elements = {
   app: document.getElementById("app"),
   tooltip: document.getElementById("tooltip"),
   authPanel: document.getElementById("auth-panel"),
+  uiPanel: document.getElementById("ui-panel"),
   entryCompose: document.getElementById("entry-compose"),
   input: document.getElementById("entry-input"),
   submitBtn: document.getElementById("submit-btn"),
+  focusToggleBtn: document.getElementById("focus-toggle-btn"),
+  focusTip: document.getElementById("focus-tip"),
+  focusTipCloseBtn: document.getElementById("focus-tip-close"),
   emailInput: document.getElementById("email-input"),
   passwordInput: document.getElementById("password-input"),
   signupBtn: document.getElementById("signup-btn"),
@@ -31,8 +35,12 @@ const elements = {
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
 const defaultInputPlaceholder = elements.input?.getAttribute("placeholder") || "Write a journal entry and create a star...";
+const FOCUS_MODE_STORAGE_KEY = "star_map_diary_focus_mode_v1";
+const FOCUS_TIP_SEEN_STORAGE_KEY = "star_map_diary_focus_tip_seen_v1";
+const FOCUS_TIP_AUTO_HIDE_MS = 8500;
 const state = {
-  activeUser: null
+  activeUser: null,
+  composerHidden: false
 };
 
 const scene = new SceneManager({
@@ -52,6 +60,8 @@ bootstrap();
 
 function wireEvents() {
   elements.submitBtn.addEventListener("click", handleSubmit);
+  elements.focusToggleBtn.addEventListener("click", handleFocusToggleClick);
+  elements.focusTipCloseBtn.addEventListener("click", () => hideFocusTip({ persistSeen: true }));
   elements.signupBtn.addEventListener("click", handleSignup);
   elements.loginBtn.addEventListener("click", handleLogin);
   elements.logoutBtn.addEventListener("click", handleLogout);
@@ -79,6 +89,7 @@ function wireEvents() {
 
 async function bootstrap() {
   setSignedInState(false);
+  initializeFocusControls();
   syncEntryInputHeight();
 
   if (!api.token) return;
@@ -280,7 +291,7 @@ function handleLockedComposerIntent(event) {
 }
 
 function showLockedComposerFeedback() {
-  setStatus("Composer is locked. Sign up or log in to add today’s entry.");
+  setStatus("Composer is locked. Sign up or log in to add today's entry.");
   runTransientAnimation(elements.entryCompose, "locked-shake", 380);
   runTransientAnimation(elements.authPanel, "auth-pulse", 420);
 
@@ -320,3 +331,96 @@ function isWriteIntent(event) {
   ]);
   return !passiveKeys.has(event.key);
 }
+
+function initializeFocusControls() {
+  const persistedHidden = readStorageFlag(FOCUS_MODE_STORAGE_KEY);
+  applyComposerVisibility(persistedHidden, { persist: false, animate: false, announce: false });
+
+  if (!readStorageFlag(FOCUS_TIP_SEEN_STORAGE_KEY)) {
+    window.setTimeout(() => showFocusTip(), 700);
+  }
+}
+
+function handleFocusToggleClick() {
+  const nextHidden = !state.composerHidden;
+  applyComposerVisibility(nextHidden, { persist: true, animate: true, announce: true });
+  hideFocusTip({ persistSeen: true });
+}
+
+function applyComposerVisibility(hidden, { persist = true, animate = true, announce = true } = {}) {
+  state.composerHidden = hidden;
+  document.body.classList.toggle("composer-hidden", hidden);
+
+  elements.focusToggleBtn.dataset.mode = hidden ? "hidden" : "visible";
+  elements.focusToggleBtn.setAttribute("aria-pressed", String(hidden));
+  elements.focusToggleBtn.setAttribute(
+    "aria-label",
+    hidden ? "Show writing controls" : "Hide writing controls for full galaxy view"
+  );
+
+  if (persist) {
+    writeStorageFlag(FOCUS_MODE_STORAGE_KEY, hidden);
+  }
+
+  if (animate) {
+    runTransientAnimation(elements.focusToggleBtn, "focus-toggle-bounce", 360);
+  }
+
+  if (announce) {
+    setStatus(
+      hidden
+        ? "Focus View enabled. Tap the arrow button to restore writing controls."
+        : "Writing controls restored."
+    );
+  }
+}
+
+function showFocusTip() {
+  if (!elements.focusTip || !elements.focusTip.hidden) return;
+  elements.focusTip.hidden = false;
+
+  window.requestAnimationFrame(() => {
+    elements.focusTip.classList.add("open");
+  });
+
+  window.setTimeout(() => {
+    hideFocusTip({ persistSeen: true });
+  }, FOCUS_TIP_AUTO_HIDE_MS);
+}
+
+function hideFocusTip({ persistSeen = false } = {}) {
+  if (!elements.focusTip || elements.focusTip.hidden) {
+    if (persistSeen) writeStorageFlag(FOCUS_TIP_SEEN_STORAGE_KEY, true);
+    return;
+  }
+
+  elements.focusTip.classList.remove("open");
+  window.setTimeout(() => {
+    elements.focusTip.hidden = true;
+  }, 220);
+
+  if (persistSeen) {
+    writeStorageFlag(FOCUS_TIP_SEEN_STORAGE_KEY, true);
+  }
+}
+
+function readStorageFlag(key) {
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch (_error) {
+    return false;
+  }
+}
+
+function writeStorageFlag(key, enabled) {
+  try {
+    if (enabled) {
+      window.localStorage.setItem(key, "1");
+      return;
+    }
+    window.localStorage.removeItem(key);
+  } catch (_error) {
+    // Ignore storage failures in restricted browser modes.
+  }
+}
+
