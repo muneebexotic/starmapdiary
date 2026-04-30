@@ -47,6 +47,7 @@ body {
 #entry-compose {
   position: relative;
   grid-column: 1 / -1;
+  transition: transform 0.2s ease;
 }
 
 #entry-input {
@@ -108,13 +109,18 @@ body {
   place-items: center;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
-  transition: transform 0.16s ease, opacity 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.2s ease, opacity 0.16s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 #submit-btn:hover {
   transform: translateY(-1px);
   opacity: 0.96;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+}
+
+.submit-icon {
+  grid-area: 1 / 1;
+  transition: opacity 0.22s ease, transform 0.24s ease;
 }
 
 .chevron-icon {
@@ -125,6 +131,20 @@ body {
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.lock-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+  transform: scale(0.74) rotate(-8deg);
 }
 
 #submit-btn:disabled,
@@ -132,6 +152,116 @@ body {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
+}
+
+#entry-compose.locked #entry-input {
+  border-color: rgba(138, 151, 176, 0.35);
+  background: rgba(6, 10, 20, 0.82);
+  color: rgba(213, 222, 238, 0.92);
+  cursor: not-allowed;
+}
+
+#entry-compose.locked #submit-btn {
+  background: linear-gradient(160deg, rgba(62, 73, 96, 0.9), rgba(96, 113, 140, 0.88));
+  border-color: rgba(171, 185, 210, 0.42);
+  color: rgba(235, 243, 255, 0.94);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+#entry-compose.locked .chevron-icon {
+  opacity: 0;
+  transform: scale(0.68) rotate(7deg);
+}
+
+#entry-compose.locked .lock-icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+#entry-compose.locked-shake {
+  animation: lockedShake 0.34s ease;
+}
+
+#entry-compose.unlock-burst .lock-icon {
+  animation: lockBreak 0.42s cubic-bezier(0.2, 0.82, 0.18, 1) forwards;
+}
+
+#entry-compose.unlock-burst .chevron-icon {
+  animation: chevronSnapIn 0.36s 0.08s cubic-bezier(0.2, 0.82, 0.18, 1) both;
+}
+
+#auth-panel.snap-collapse {
+  animation: authSnapCollapse 0.42s cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#auth-panel.auth-pulse {
+  animation: authPulse 0.4s ease;
+}
+
+@keyframes lockedShake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes lockBreak {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.15) rotate(-10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.46) rotate(24deg);
+  }
+}
+
+@keyframes chevronSnapIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.52) rotate(-14deg);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.14) rotate(4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes authSnapCollapse {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  40% {
+    transform: translateX(8px) scale(0.94);
+  }
+  72% {
+    transform: translateX(-2px) scale(1.02);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes authPulse {
+  0% {
+    box-shadow: 0 0 0 rgba(245, 201, 106, 0);
+  }
+  40% {
+    box-shadow: 0 0 0 2px rgba(245, 201, 106, 0.38);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(245, 201, 106, 0);
+  }
 }
 
 #tooltip {
@@ -326,6 +456,7 @@ body {
   border-radius: var(--radius-panel);
   backdrop-filter: blur(8px);
   z-index: 22;
+  transform-origin: top right;
 }
 
 #auth-row {

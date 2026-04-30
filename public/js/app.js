@@ -10,6 +10,7 @@ const elements = {
   app: document.getElementById("app"),
   tooltip: document.getElementById("tooltip"),
   authPanel: document.getElementById("auth-panel"),
+  entryCompose: document.getElementById("entry-compose"),
   input: document.getElementById("entry-input"),
   submitBtn: document.getElementById("submit-btn"),
   emailInput: document.getElementById("email-input"),
@@ -29,6 +30,7 @@ const elements = {
 };
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
+const defaultInputPlaceholder = elements.input?.getAttribute("placeholder") || "Write a journal entry and create a star...";
 const state = {
   activeUser: null
 };
@@ -55,11 +57,19 @@ function wireEvents() {
   elements.logoutBtn.addEventListener("click", handleLogout);
 
   elements.input.addEventListener("keydown", (event) => {
+    if (!api.token && isWriteIntent(event)) {
+      event.preventDefault();
+      showLockedComposerFeedback();
+      return;
+    }
+
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       handleSubmit();
     }
   });
   elements.input.addEventListener("input", syncEntryInputHeight);
+  elements.input.addEventListener("pointerdown", handleLockedComposerIntent);
+  elements.input.addEventListener("focus", handleLockedComposerIntent);
 
   elements.closeModalBtn.addEventListener("click", closeModal);
   elements.modal.addEventListener("click", (event) => {
@@ -163,7 +173,7 @@ async function loadEntriesFromServer() {
 
 async function handleSubmit() {
   if (!api.token) {
-    setStatus("Please log in first.");
+    showLockedComposerFeedback();
     return;
   }
 
@@ -209,14 +219,26 @@ function closeModal() {
 }
 
 function setSignedInState(signedIn) {
+  const wasSignedIn = elements.authPanel.classList.contains("signed-in");
+
   elements.authPanel.classList.toggle("signed-in", signedIn);
-  elements.submitBtn.disabled = !signedIn;
-  elements.input.disabled = !signedIn;
+  elements.entryCompose.classList.toggle("locked", !signedIn);
+  elements.submitBtn.disabled = false;
+  elements.input.disabled = false;
+  elements.input.readOnly = !signedIn;
+  elements.input.setAttribute("aria-disabled", String(!signedIn));
+  elements.submitBtn.setAttribute("aria-label", signedIn ? "Add Star" : "Locked. Sign in or sign up to add a star");
+  elements.input.placeholder = signedIn ? defaultInputPlaceholder : "Sign in or sign up to unlock journaling...";
   elements.emailInput.disabled = signedIn;
   elements.passwordInput.disabled = signedIn;
   elements.signupBtn.disabled = signedIn;
   elements.loginBtn.disabled = signedIn;
   elements.logoutBtn.disabled = !signedIn;
+
+  if (signedIn && !wasSignedIn) {
+    runTransientAnimation(elements.entryCompose, "unlock-burst", 520);
+    runTransientAnimation(elements.authPanel, "snap-collapse", 500);
+  }
 
   if (signedIn && state.activeUser?.email) {
     setStatus(`Signed in as ${state.activeUser.email}`);
@@ -241,4 +263,60 @@ function syncEntryInputHeight() {
   const nextHeight = Math.min(maxHeight, Math.max(composeHeight, input.scrollHeight));
   input.style.height = `${nextHeight}px`;
   input.style.overflowY = input.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
+function handleLockedComposerIntent(event) {
+  if (api.token) return;
+
+  if (event.type === "pointerdown") {
+    event.preventDefault();
+  }
+
+  if (event.type === "focus") {
+    elements.input.blur();
+  }
+
+  showLockedComposerFeedback();
+}
+
+function showLockedComposerFeedback() {
+  setStatus("Composer is locked. Sign up or log in to add today’s entry.");
+  runTransientAnimation(elements.entryCompose, "locked-shake", 380);
+  runTransientAnimation(elements.authPanel, "auth-pulse", 420);
+
+  if (!elements.emailInput.disabled) {
+    elements.emailInput.focus({ preventScroll: true });
+  }
+}
+
+function runTransientAnimation(element, className, durationMs) {
+  if (!element) return;
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+  window.setTimeout(() => {
+    element.classList.remove(className);
+  }, durationMs);
+}
+
+function isWriteIntent(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  const passiveKeys = new Set([
+    "Shift",
+    "Control",
+    "Meta",
+    "Alt",
+    "CapsLock",
+    "Escape",
+    "Tab",
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Home",
+    "End",
+    "PageUp",
+    "PageDown"
+  ]);
+  return !passiveKeys.has(event.key);
 }
