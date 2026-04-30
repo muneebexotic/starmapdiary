@@ -50,6 +50,15 @@ body {
   grid-template-columns: 1fr;
   gap: 10px;
   z-index: 20;
+  transform-origin: center bottom;
+  transition: transform 0.42s cubic-bezier(0.2, 0.82, 0.18, 1), opacity 0.28s ease, filter 0.28s ease;
+}
+
+body.composer-hidden #ui-panel {
+  transform: translateX(-50%) translateY(132px) scale(0.92);
+  opacity: 0;
+  filter: blur(7px);
+  pointer-events: none;
 }
 
 #entry-compose {
@@ -104,7 +113,8 @@ body {
 
 #submit-btn,
 .auth-btn,
-#close-modal {
+#close-modal,
+#focus-toggle-btn {
   border: 1px solid var(--button-theme-border);
   background: var(--button-theme-bg);
   color: var(--button-theme-text);
@@ -114,12 +124,95 @@ body {
 
 #submit-btn:hover,
 .auth-btn:hover,
-#close-modal:hover {
+#close-modal:hover,
+#focus-toggle-btn:hover {
   transform: translateY(-1px);
   opacity: var(--button-theme-hover-opacity);
   background: var(--button-theme-bg-hover);
   border-color: var(--button-theme-border-hover);
   box-shadow: var(--button-theme-shadow-hover);
+}
+
+#focus-toggle-btn {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 24;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+}
+
+.focus-icon {
+  grid-area: 1 / 1;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 0.22s ease, transform 0.24s ease;
+}
+
+.focus-show-icon {
+  opacity: 0;
+  transform: scale(0.56) rotate(-16deg);
+}
+
+#focus-toggle-btn[data-mode="hidden"] .focus-hide-icon {
+  opacity: 0;
+  transform: scale(0.56) rotate(16deg);
+}
+
+#focus-toggle-btn[data-mode="hidden"] .focus-show-icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+#focus-toggle-btn.focus-toggle-bounce {
+  animation: focusToggleBounce 0.35s cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#focus-tip {
+  position: fixed;
+  right: 18px;
+  bottom: 72px;
+  z-index: 23;
+  width: min(90vw, 350px);
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(160deg, rgba(245, 201, 106, 0.13), rgba(114, 166, 255, 0.1) 58%, rgba(16, 24, 42, 0.18)), rgba(10, 15, 26, 0.92);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition: opacity 0.22s ease, transform 0.25s ease;
+}
+
+#focus-tip.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#focus-tip-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(245, 248, 255, 0.92);
+}
+
+#focus-tip-close {
+  justify-self: end;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
 }
 
 #submit-btn {
@@ -278,6 +371,21 @@ body {
   }
   100% {
     box-shadow: 0 0 0 rgba(245, 201, 106, 0);
+  }
+}
+
+@keyframes focusToggleBounce {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.88);
+  }
+  68% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
@@ -549,5 +657,19 @@ body {
     --compose-height: 92px;
     height: var(--compose-height);
     min-height: var(--compose-height);
+  }
+
+  #focus-toggle-btn {
+    right: 12px;
+    bottom: 12px;
+    width: 42px;
+    height: 42px;
+  }
+
+  #focus-tip {
+    left: 12px;
+    right: 12px;
+    bottom: 64px;
+    width: auto;
   }
 }
