@@ -46,11 +46,13 @@ body {
   inset: 0;
   user-select: none;
   -webkit-user-select: none;
+  pointer-events: none;
 }
 
 #app canvas {
   touch-action: none;
   display: block;
+  pointer-events: auto;
 }
 
 #entry-input,
@@ -59,6 +61,12 @@ body {
 #modal-card {
   user-select: text;
   -webkit-user-select: text;
+}
+
+#entry-input,
+.auth-input,
+#date-filter-input {
+  touch-action: manipulation;
 }
 
 button {

@@ -368,10 +368,6 @@ function syncEntryInputHeight() {
 function handleLockedComposerIntent(event) {
   if (api.token) return;
 
-  if (event.type === "pointerdown") {
-    event.preventDefault();
-  }
-
   if (event.type === "focus") {
     elements.input.blur();
   }
