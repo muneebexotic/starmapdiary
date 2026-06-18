@@ -44,9 +44,13 @@ body {
 #app {
   position: fixed;
   inset: 0;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+#app canvas {
+  touch-action: none;
+  display: block;
 }
 
 #entry-input,
@@ -798,7 +802,76 @@ body.composer-hidden #ui-panel {
 }
 
 @media (max-width: 640px) {
-  /* Reminder banner */
+  /* ── Auth panel — centered card when signed out ── */
+  #auth-panel:not(.signed-in) {
+    top: max(36px, calc(var(--sat) + 26px));
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(88vw, 340px);
+  }
+
+  /* Signed-in: just the logout button, back to top-right */
+  #auth-panel.signed-in {
+    left: auto;
+    right: max(12px, calc(var(--sar) + 12px));
+    top: max(12px, calc(var(--sat) + 4px));
+    transform: none;
+  }
+
+  /* Stack email/password inputs vertically */
+  #auth-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  /* ── Inputs: 16px prevents iOS auto-zoom, comfortable height ── */
+  .auth-input {
+    height: 40px;
+    font-size: 16px;
+    border-radius: var(--radius-card);
+  }
+
+  #entry-input {
+    --compose-height: 80px;
+    height: var(--compose-height);
+    min-height: var(--compose-height);
+    font-size: 16px;
+  }
+
+  #date-filter-input {
+    font-size: 16px;
+    height: 40px;
+  }
+
+  /* ── Touch targets: comfortable without being oversized ── */
+  .auth-btn {
+    min-height: 40px;
+    font-size: 13px;
+    padding: 0 14px;
+  }
+
+  #submit-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  #close-modal {
+    width: 44px;
+    height: 44px;
+  }
+
+  #date-filter-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  #date-filter-clear {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  /* ── Reminder banner ── */
   #reminder-banner {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -817,84 +890,27 @@ body.composer-hidden #ui-panel {
 
   #enable-push-btn {
     width: 100%;
-    min-height: 44px;
+    min-height: 40px;
   }
 
-  /* ── Inputs: 16px prevents iOS auto-zoom ── */
-  #entry-input {
-    --compose-height: 92px;
-    height: var(--compose-height);
-    min-height: var(--compose-height);
-    font-size: 16px;
-  }
-
-  .auth-input {
-    height: 44px;
-    font-size: 16px;
-    border-radius: var(--radius-card);
-  }
-
-  #auth-row {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  #date-filter-input {
-    font-size: 16px;
-    height: 44px;
-  }
-
-  /* ── Touch targets: 44 px minimum ── */
-  .auth-btn {
-    min-height: 44px;
-    font-size: 13px;
-    padding: 0 14px;
-  }
-
-  #submit-btn {
-    width: 44px;
-    height: 44px;
-  }
-
-  #close-modal {
-    width: 44px;
-    height: 44px;
-  }
-
-  #date-filter-btn {
-    width: 48px;
-    height: 48px;
-  }
-
-  #date-filter-clear {
-    min-height: 44px;
-    padding: 0 14px;
-  }
-
-  #focus-tip-close {
-    min-height: 36px;
-    padding: 0 12px;
-  }
-
-  /* ── Focus controls — safe-area-aware overrides ── */
+  /* ── Focus controls — safe-area-aware ── */
   #focus-toggle-btn {
     right: max(12px, calc(var(--sar) + 8px));
     bottom: max(12px, calc(var(--sab) + 8px));
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
   }
 
   #focus-tip {
     left: 12px;
     right: max(12px, calc(var(--sar) + 8px));
-    bottom: max(70px, calc(var(--sab) + 64px));
+    bottom: max(68px, calc(var(--sab) + 62px));
     width: auto;
   }
 
-  /* ── Modal → native-feeling bottom sheet ── */
+  /* ── Modal → native bottom sheet ── */
   #modal {
     padding: 0;
-    backdrop-filter: none;
   }
 
   #modal.open {
