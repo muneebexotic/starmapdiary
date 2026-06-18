@@ -2,6 +2,14 @@ import { SENTIMENT_CONFIG } from "../config/sentiment.js";
 import { buildEntryPreview, escapeHtml, formatDate } from "../utils/formatters.js";
 import { createBackgroundStarfield, createGlowTexture, randomPositionInGalaxy } from "./galaxy-utils.js";
 
+function localDateString(iso) {
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export class SceneManager {
   constructor({ container, tooltip, onStarSelected }) {
     this.container = container;
@@ -45,6 +53,8 @@ export class SceneManager {
     this.diaryEntries = [];
     this.diaryStars = [];
     this.hoveredStar = null;
+    this.filterDate = null;
+    this.constellationTargetOpacity = 0.11;
 
     this.constellationGroup = new this.THREE.Group();
     this.scene.add(this.constellationGroup);
@@ -73,7 +83,27 @@ export class SceneManager {
     });
   }
 
+  filterByDate(dateStr) {
+    this.filterDate = dateStr;
+    this.constellationTargetOpacity = 0;
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      const star = this.diaryStars[i];
+      const entryDate = localDateString(star.userData.entry.createdAt);
+      star.userData.targetOpacity = entryDate === dateStr ? 1 : 0;
+    }
+  }
+
+  clearFilter() {
+    this.filterDate = null;
+    this.constellationTargetOpacity = 0.11;
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      this.diaryStars[i].userData.targetOpacity = 1;
+    }
+  }
+
   clearEntries() {
+    this.filterDate = null;
+    this.constellationTargetOpacity = 0.11;
     this.hoveredStar = null;
     this.tooltip.style.opacity = "0";
 
@@ -110,11 +140,18 @@ export class SceneManager {
     star.position.set(entry.position.x, entry.position.y, entry.position.z);
     star.scale.setScalar(size);
 
+    const targetOpacity = this.filterDate
+      ? (localDateString(entry.createdAt) === this.filterDate ? 1 : 0)
+      : 1;
+
     star.userData = {
       entry,
       baseScale: size,
-      pulseOffset: Math.random() * Math.PI * 2
+      pulseOffset: Math.random() * Math.PI * 2,
+      targetOpacity,
+      currentOpacity: targetOpacity
     };
+    material.opacity = targetOpacity;
 
     this.diaryEntries.push(entry);
     this.diaryStars.push(star);
@@ -146,7 +183,8 @@ export class SceneManager {
     this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
 
-    const intersects = this.raycaster.intersectObjects(this.diaryStars, false);
+    const hittable = this.diaryStars.filter(s => (s.userData.currentOpacity ?? 1) > 0.1);
+    const intersects = this.raycaster.intersectObjects(hittable, false);
     if (intersects.length > 0 && this.onStarSelected) {
       this.onStarSelected(intersects[0].object.userData.entry);
     }
@@ -154,7 +192,8 @@ export class SceneManager {
 
   updateHoverState() {
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.diaryStars, false);
+    const hittable = this.diaryStars.filter(s => (s.userData.currentOpacity ?? 1) > 0.1);
+    const intersects = this.raycaster.intersectObjects(hittable, false);
 
     if (intersects.length > 0) {
       this.hoveredStar = intersects[0].object;
@@ -213,7 +252,26 @@ export class SceneManager {
     for (let i = 0; i < this.diaryStars.length; i += 1) {
       const star = this.diaryStars[i];
       const pulse = 1 + Math.sin(t * 1.5 + star.userData.pulseOffset) * 0.08;
+
+      const current = star.userData.currentOpacity ?? 1;
+      const target = star.userData.targetOpacity ?? 1;
+      if (current !== target) {
+        const next = current + (target - current) * 0.07;
+        star.userData.currentOpacity = Math.abs(next - target) < 0.002 ? target : next;
+        star.material.opacity = star.userData.currentOpacity;
+      }
+
       star.scale.setScalar(star.userData.baseScale * pulse);
+    }
+
+    for (let i = 0; i < this.constellationGroup.children.length; i += 1) {
+      const line = this.constellationGroup.children[i];
+      const curr = line.material.opacity;
+      const tgt = this.constellationTargetOpacity;
+      if (curr !== tgt) {
+        const next = curr + (tgt - curr) * 0.07;
+        line.material.opacity = Math.abs(next - tgt) < 0.001 ? tgt : next;
+      }
     }
 
     this.updateHoverState();

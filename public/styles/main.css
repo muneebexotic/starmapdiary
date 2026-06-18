@@ -632,6 +632,123 @@ body.composer-hidden #ui-panel {
   padding: 0 14px;
 }
 
+/* ── Date Filter ─────────────────────────────────────────── */
+
+#date-filter {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#date-filter-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, opacity 0.16s ease, box-shadow 0.25s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+#date-filter-btn.active {
+  box-shadow: 0 0 0 2px rgba(245, 201, 106, 0.6), 0 0 14px rgba(245, 201, 106, 0.25), 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+#date-filter-btn.active::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(245, 201, 106, 0.95);
+  box-shadow: 0 0 6px rgba(245, 201, 106, 0.8);
+}
+
+.date-filter-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#date-filter-popover {
+  width: min(88vw, 268px);
+  padding: 13px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(160deg, rgba(245, 201, 106, 0.09), rgba(114, 166, 255, 0.07) 58%, rgba(16, 24, 42, 0.1)),
+    rgba(10, 15, 26, 0.94);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.95);
+  transition: opacity 0.22s ease, transform 0.25s cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#date-filter-popover.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#date-filter-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(220, 228, 242, 0.6);
+}
+
+#date-filter-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#date-filter-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(4, 8, 18, 0.85);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  color-scheme: dark;
+  transition: border-color 0.18s ease;
+}
+
+#date-filter-input:focus {
+  border-color: rgba(245, 201, 106, 0.45);
+}
+
+#date-filter-clear {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ── End Date Filter ──────────────────────────────────────── */
+
 @media (max-width: 640px) {
   #reminder-banner {
     grid-template-columns: 1fr;

@@ -30,7 +30,12 @@ const elements = {
   modal: document.getElementById("modal"),
   closeModalBtn: document.getElementById("close-modal"),
   entryMeta: document.getElementById("entry-meta"),
-  entryFull: document.getElementById("entry-full")
+  entryFull: document.getElementById("entry-full"),
+  dateFilter: document.getElementById("date-filter"),
+  dateFilterBtn: document.getElementById("date-filter-btn"),
+  dateFilterPopover: document.getElementById("date-filter-popover"),
+  dateFilterInput: document.getElementById("date-filter-input"),
+  dateFilterClear: document.getElementById("date-filter-clear")
 };
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
@@ -40,7 +45,8 @@ const FOCUS_TIP_SEEN_STORAGE_KEY = "star_map_diary_focus_tip_seen_v1";
 const FOCUS_TIP_AUTO_HIDE_MS = 8500;
 const state = {
   activeUser: null,
-  composerHidden: false
+  composerHidden: false,
+  dateFilterOpen: false
 };
 
 const scene = new SceneManager({
@@ -84,6 +90,16 @@ function wireEvents() {
   elements.closeModalBtn.addEventListener("click", closeModal);
   elements.modal.addEventListener("click", (event) => {
     if (event.target === elements.modal) closeModal();
+  });
+
+  elements.dateFilterBtn.addEventListener("click", handleDateFilterToggle);
+  elements.dateFilterInput.addEventListener("change", handleDateFilterChange);
+  elements.dateFilterClear.addEventListener("click", handleDateFilterClear);
+
+  document.addEventListener("click", (event) => {
+    if (!state.dateFilterOpen) return;
+    if (elements.dateFilter.contains(event.target)) return;
+    closeDateFilterPopover();
   });
 }
 
@@ -164,6 +180,7 @@ function handleLogout() {
   state.activeUser = null;
   scene.clearEntries();
   reminders.stop();
+  resetDateFilter();
   setSignedInState(false);
   setStatus("Logged out.");
 }
@@ -171,6 +188,7 @@ function handleLogout() {
 async function loadEntriesFromServer() {
   const payload = await api.get("/entries");
 
+  resetDateFilter();
   scene.clearEntries();
 
   for (let i = 0; i < payload.entries.length; i += 1) {
@@ -223,6 +241,7 @@ function openModalForEntry(entry) {
   elements.entryMeta.textContent = `${sentimentMeta.label} | ${formatDate(entry.createdAt)}`;
   elements.entryFull.textContent = entry.text;
   elements.modal.classList.add("open");
+  closeDateFilterPopover();
 }
 
 function closeModal() {
@@ -245,6 +264,7 @@ function setSignedInState(signedIn) {
   elements.signupBtn.disabled = signedIn;
   elements.loginBtn.disabled = signedIn;
   elements.logoutBtn.disabled = !signedIn;
+  elements.dateFilter.hidden = !signedIn;
 
   if (signedIn && !wasSignedIn) {
     runTransientAnimation(elements.entryCompose, "unlock-burst", 520);
@@ -256,6 +276,57 @@ function setSignedInState(signedIn) {
   } else if (!signedIn) {
     setStatus("Not signed in.");
   }
+}
+
+function handleDateFilterToggle() {
+  if (state.dateFilterOpen) {
+    closeDateFilterPopover();
+  } else {
+    openDateFilterPopover();
+  }
+}
+
+function openDateFilterPopover() {
+  state.dateFilterOpen = true;
+  elements.dateFilterPopover.hidden = false;
+  elements.dateFilterBtn.setAttribute("aria-expanded", "true");
+  window.requestAnimationFrame(() => {
+    elements.dateFilterPopover.classList.add("open");
+  });
+}
+
+function closeDateFilterPopover() {
+  if (!state.dateFilterOpen) return;
+  state.dateFilterOpen = false;
+  elements.dateFilterPopover.classList.remove("open");
+  elements.dateFilterBtn.setAttribute("aria-expanded", "false");
+  window.setTimeout(() => {
+    if (!state.dateFilterOpen) elements.dateFilterPopover.hidden = true;
+  }, 250);
+}
+
+function handleDateFilterChange() {
+  const dateStr = elements.dateFilterInput.value;
+  if (dateStr) {
+    scene.filterByDate(dateStr);
+    elements.dateFilterBtn.classList.add("active");
+  } else {
+    scene.clearFilter();
+    elements.dateFilterBtn.classList.remove("active");
+  }
+}
+
+function handleDateFilterClear() {
+  elements.dateFilterInput.value = "";
+  scene.clearFilter();
+  elements.dateFilterBtn.classList.remove("active");
+}
+
+function resetDateFilter() {
+  elements.dateFilterInput.value = "";
+  elements.dateFilterBtn.classList.remove("active");
+  closeDateFilterPopover();
+  scene.clearFilter();
 }
 
 function setStatus(message) {

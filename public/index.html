@@ -13,6 +13,26 @@
 
   <div id="hint">Drag to orbit | Scroll to zoom | Hover and click stars to read entries</div>
 
+  <div id="date-filter" hidden>
+    <button id="date-filter-btn" class="auth-btn" type="button" aria-label="Filter stars by date" aria-expanded="false">
+      <svg class="date-filter-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="8"/>
+        <line x1="12" y1="2" x2="12" y2="6"/>
+        <line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="6" y2="12"/>
+        <line x1="18" y1="12" x2="22" y2="12"/>
+        <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+    <div id="date-filter-popover" hidden>
+      <p id="date-filter-label">✦ Filter stars by date</p>
+      <div id="date-filter-controls">
+        <input id="date-filter-input" type="date" aria-label="Select date to filter stars" />
+        <button id="date-filter-clear" class="auth-btn" type="button">Clear</button>
+      </div>
+    </div>
+  </div>
+
   <div id="auth-panel">
     <div id="auth-row">
       <input id="email-input" class="auth-input" type="email" autocomplete="email" placeholder="Email" />
