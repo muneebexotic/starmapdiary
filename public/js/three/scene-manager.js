@@ -55,6 +55,7 @@ export class SceneManager {
     this.hoveredStar = null;
     this.filterDate = null;
     this.constellationTargetOpacity = 0.11;
+    this._resizeTimer = null;
 
     this.constellationGroup = new this.THREE.Group();
     this.scene.add(this.constellationGroup);
@@ -160,9 +161,19 @@ export class SceneManager {
   }
 
   handleResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    clearTimeout(this._resizeTimer);
+    this._resizeTimer = setTimeout(() => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }, 80);
+  }
+
+  clearHover() {
+    this.hoveredStar = null;
+    this.tooltip.style.opacity = "0";
+    this.tooltip.setAttribute("aria-hidden", "true");
+    document.body.style.cursor = "default";
   }
 
   handlePointerMove(event) {
@@ -179,6 +190,7 @@ export class SceneManager {
   }
 
   handlePointerDown(event) {
+    if (event.target !== this.renderer.domElement) return;
     this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);

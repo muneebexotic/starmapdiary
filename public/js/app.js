@@ -101,6 +101,23 @@ function wireEvents() {
     if (elements.dateFilter.contains(event.target)) return;
     closeDateFilterPopover();
   });
+
+  if (navigator.maxTouchPoints > 0) {
+    const hint = document.getElementById("hint");
+    if (hint) hint.textContent = "Drag to orbit · Pinch to zoom · Tap stars to read";
+  }
+
+  if (window.visualViewport) {
+    const onViewportChange = () => {
+      const offset = Math.max(
+        0,
+        window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
+      );
+      document.documentElement.style.setProperty("--keyboard-offset", `${offset}px`);
+    };
+    window.visualViewport.addEventListener("resize", onViewportChange);
+    window.visualViewport.addEventListener("scroll", onViewportChange);
+  }
 }
 
 async function bootstrap() {
@@ -242,6 +259,7 @@ function openModalForEntry(entry) {
   elements.entryFull.textContent = entry.text;
   elements.modal.classList.add("open");
   closeDateFilterPopover();
+  scene.clearHover();
 }
 
 function closeModal() {
