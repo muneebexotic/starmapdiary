@@ -2,26 +2,16 @@ const express = require("express");
 const { requireAuth } = require("../middleware/auth");
 const { env } = require("../config/env");
 const { DEFAULT_REMINDER_TIMES } = require("../services/reminders/constants");
-const { computeReminderStatus, coerceSettingsRow } = require("../services/reminders/status");
+const {
+  computeReminderStatus,
+  coerceSettingsRow,
+  getReminderSettingsRow
+} = require("../services/reminders/status");
 const { normalizeReminderTimes, validateTimezone } = require("../services/reminders/time");
 
 const router = express.Router();
 
 router.use(requireAuth);
-
-async function getReminderSettingsRow(scopedClient, userId) {
-  const { data, error } = await scopedClient
-    .from("reminder_settings")
-    .select("user_id,timezone,enabled,reminder_times")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
-}
 
 router.get("/status", async (req, res) => {
   if (!env.remindersEnabled) {

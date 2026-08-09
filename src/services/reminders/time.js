@@ -100,6 +100,7 @@ function getDueSlots(timezone, reminderTimes, now = DateTime.utc()) {
 module.exports = {
   normalizeReminderTimes,
   validateTimezone,
+  getLocalNow,
   getNextDueAt,
   getDueSlots,
   toUtcBoundsForLocalDate

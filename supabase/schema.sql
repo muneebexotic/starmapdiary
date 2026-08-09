@@ -40,6 +40,28 @@ create policy "entries_delete_own"
   for delete
   using (auth.uid() = user_id);
 
+-- Streaks read history through this function rather than a stored counter, so an existing
+-- user's real streak is correct the first time they load the feature, with no backfill.
+-- security invoker keeps RLS in force: it only ever sees the caller's own rows.
+-- Returning an aggregated array (not a row set) keeps PostgREST's row cap from silently
+-- truncating a long history.
+create or replace function public.entry_local_dates(tz text)
+returns date[]
+language sql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+  select coalesce(
+    array_agg(distinct (created_at at time zone tz)::date
+              order by (created_at at time zone tz)::date),
+    '{}'::date[]
+  )
+  from public.diary_entries;
+$$;
+
+grant execute on function public.entry_local_dates(text) to authenticated;
+
 create table if not exists public.reminder_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   timezone text not null,

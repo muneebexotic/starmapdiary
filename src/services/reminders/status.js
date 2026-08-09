@@ -2,6 +2,20 @@ const { DateTime } = require("luxon");
 const { DEFAULT_REMINDER_TIMES } = require("./constants");
 const { getNextDueAt, normalizeReminderTimes, toUtcBoundsForLocalDate, validateTimezone } = require("./time");
 
+async function getReminderSettingsRow(scopedClient, userId) {
+  const { data, error } = await scopedClient
+    .from("reminder_settings")
+    .select("user_id,timezone,enabled,reminder_times")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 async function hasCompletedEntryToday({ client, userId, timezone, now = DateTime.utc(), scoped = false }) {
   const localDate = now.setZone(timezone).toISODate();
   const { startUtcIso, endUtcIso } = toUtcBoundsForLocalDate(timezone, localDate);
@@ -57,6 +71,7 @@ async function computeReminderStatus({ scopedClient, userId, settingsRow }) {
 }
 
 module.exports = {
+  getReminderSettingsRow,
   hasCompletedEntryToday,
   computeReminderStatus,
   coerceSettingsRow

@@ -12,7 +12,8 @@ const env = {
   vapidPublicKey: process.env.VAPID_PUBLIC_KEY || "",
   vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || "",
   vapidSubject: process.env.VAPID_SUBJECT || "mailto:admin@example.com",
-  remindersEnabled: String(process.env.REMINDERS_ENABLED || "true").toLowerCase() !== "false"
+  remindersEnabled: String(process.env.REMINDERS_ENABLED || "true").toLowerCase() !== "false",
+  streakGraceEnabled: String(process.env.STREAK_GRACE_ENABLED || "true").toLowerCase() !== "false"
 };
 
 if (!env.supabaseUrl || !env.supabaseAnonKey) {

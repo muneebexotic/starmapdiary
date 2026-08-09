@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | Daily journaling streaks for Star Map Diary |
-| Status | Draft for review — design complete, not implemented |
+| Status | Phase 1 (engine) implemented — Phases 2–4 not started |
 | Author | Design + engineering spec |
 | Date | 2026-08-09 |
 | Related systems | `diary_entries`, `reminder_settings`, `/api/reminders/*`, `SceneManager` constellation layer |
@@ -532,12 +532,32 @@ Unit tests belong on the pure fold in `src/services/streaks/compute.js` — it t
 
 | Phase | Scope | Exit criteria |
 | --- | --- | --- |
-| **1 — Engine** | `src/services/streaks/compute.js` (pure fold), `entry_local_dates` RPC, `GET /api/streak`, `createdAt` clamp (§7.6). No UI. | Cases 1–18 green as unit tests; API verified against a seeded account with real history |
+| **1 — Engine** ✅ | `src/services/streaks/compute.js` (pure fold), `entry_local_dates` RPC, `GET /api/streak`, `createdAt` clamp (§7.6). No UI. | Cases 1–18 green as unit tests; API verified against a seeded account with real history |
 | **2 — Quiet UI** | Streak pill + card + history grid, `streak_settings` table, opt-out, `visible` plumbed through. No trail, no celebrations. | Existing users see their true streak on first load (G-2); opt-out works end to end |
 | **3 — The sky** | Constellation trail in `SceneManager`, reward beat, milestones, reduced-motion support. Cache only if measured as needed. | No frame-rate regression at 365 days (case 23) |
 | **4 — Reminders + tuning** | N-1 copy change, analytics dashboards, rest-day window tuning. | Guardrail metrics (§10) stable for 4 weeks |
 
 Ship Phase 1+2 together; they are the feature. Phase 3 is what makes it *this* product's feature.
+
+### 13.1 Phase 1 — as built
+
+| Spec | Delivered in |
+| --- | --- |
+| Pure fold (§7.3) | `src/services/streaks/compute.js` — dependency-free calendar arithmetic on UTC epoch days, so DST cannot produce an off-by-one |
+| Milestones, grace window, history window | `src/services/streaks/constants.js` |
+| Timezone resolution, data access, `at_risk`, payload assembly | `src/services/streaks/service.js` |
+| `GET /api/streak` (§7.5) | `src/routes/streak.routes.js`, mounted in `src/app.js` |
+| `entry_local_dates` RPC | `supabase/schema.sql` |
+| `createdAt` clamp (§7.6) | `src/domain/entries.js` |
+| `STREAK_GRACE_ENABLED` (R-6) | `src/config/env.js`, `.env.example` |
+| QA cases 1–18 | `test/streaks.compute.test.js`, `test/streaks.service.test.js`, `test/entries.domain.test.js` — `npm test` |
+
+Two deviations from the spec as written, both deliberate:
+
+- **The RPC has a fallback.** `supabase/schema.sql` has to be applied by hand in the Supabase SQL editor, so if `entry_local_dates` is missing the service logs once and falls back to reading `created_at` and converting in Node (§7.3 named this an acceptable shortcut). The endpoint therefore works before the SQL is applied; applying it moves the work into Postgres.
+- **`visible` is hard-coded `true`.** The `streak_settings` table lands in Phase 2, but the field is already in the payload so the client contract does not change when it does.
+
+`getReminderSettingsRow` moved from `src/routes/reminders.routes.js` into `src/services/reminders/status.js` so both routers share one implementation, and `getLocalNow` is now exported from `src/services/reminders/time.js`. No behaviour changed in the reminder paths.
 
 ---
 

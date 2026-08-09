@@ -36,6 +36,12 @@ npm start
 ```
 Open `http://localhost:3000`.
 
+## Run tests
+```bash
+npm test
+```
+Uses the built-in Node test runner — no extra dependencies.
+
 ## Project structure
 - `src/`: backend app layers
 - `src/config`: environment parsing and validation
@@ -43,11 +49,26 @@ Open `http://localhost:3000`.
 - `src/middleware`: cross-cutting request middleware
 - `src/domain`: domain validation/normalization logic
 - `src/routes`: API route modules by bounded context
+- `src/services`: feature logic (`reminders`, `streaks`)
+- `docs/`: feature design documents
+- `test/`: unit tests
 - `public/`: frontend static assets served by Express
 - `public/js`: browser code split by concern (`config`, `services`, `features`, `three`)
 - `public/styles`: CSS assets
 
 This separation keeps transport, business rules, and infrastructure decoupled, so features can be changed without rewriting unrelated layers.
+
+## Streaks
+`GET /api/streak` returns the signed-in user's journaling streak. Send the browser's IANA
+timezone as an `X-Client-Timezone` header so a first-ever load is correct before reminder
+settings exist.
+
+The streak is derived from `diary_entries` on every read rather than stored as a counter, so
+existing history counts immediately and no backfill is needed. Design rationale, UX research
+and the remaining phases are in `docs/streaks-frd.md`.
+
+Set `STREAK_GRACE_ENABLED=false` to disable automatic rest days and use strict
+consecutive-day counting.
 
 ## 4) Supabase MCP
 Installed package:

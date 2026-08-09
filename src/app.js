@@ -7,6 +7,7 @@ const healthRoutes = require("./routes/health.routes");
 const authRoutes = require("./routes/auth.routes");
 const entriesRoutes = require("./routes/entries.routes");
 const remindersRoutes = require("./routes/reminders.routes");
+const streakRoutes = require("./routes/streak.routes");
 const cronRoutes = require("./routes/cron.routes");
 
 const app = express();
@@ -20,6 +21,7 @@ app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/entries", entriesRoutes);
 app.use("/api/reminders", remindersRoutes);
+app.use("/api/streak", streakRoutes);
 app.use("/api/cron", cronRoutes);
 
 app.use("/api", (_req, res) => {

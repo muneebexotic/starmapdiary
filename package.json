@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "test": "node --test \"test/**/*.test.js\"",
     "mcp:supabase": "mcp-server-supabase --project-ref %SUPABASE_PROJECT_REF%"
   },
   "keywords": [],
