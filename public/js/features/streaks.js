@@ -2,6 +2,15 @@ import { formatDayLabel, formatNights, formatWeekday } from "../utils/formatters
 
 const GRID_DAYS = 28;
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const COUNT_PUNCH_DELAY_MS = 260;
+const COUNT_PUNCH_MS = 220;
+const MILESTONE_TOAST_MS = 5000;
+
+const NO_TRAIL = { setData() {}, playDraw() {}, playSweep() {} };
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 // Copy is deliberately invitational. No "don't", "lose", "missed", "broke", or exclamation
 // marks — see docs/streaks-frd.md section 8.4.
@@ -48,14 +57,17 @@ function buildPillLabel(status) {
 }
 
 export class StreakManager {
-  constructor({ api, elements, setStatus, onOpen }) {
+  constructor({ api, elements, setStatus, onOpen, trail = NO_TRAIL }) {
     this.api = api;
     this.elements = elements;
     this.setStatus = setStatus;
     this.onOpen = onOpen;
+    this.trail = trail;
     this.status = null;
     this.cardOpen = false;
     this.timer = null;
+    this.punchTimer = null;
+    this.toastTimer = null;
     this.lastAnnouncedCount = null;
 
     this.handlePillClick = this.handlePillClick.bind(this);
@@ -86,13 +98,30 @@ export class StreakManager {
       this.timer = null;
     }
 
+    window.clearTimeout(this.punchTimer);
+    this.hideMilestone({ immediate: true });
+    this.trail.setData(null);
     this.closeCard({ immediate: true });
     this.elements.streak.hidden = true;
     this.elements.streakShowBtn.hidden = true;
   }
 
-  async onEntrySaved() {
-    await this.refresh({ announce: true });
+  /**
+   * The reward beat. `streak` is the payload POST /api/entries returns alongside the entry,
+   * so the trail and the count update without a second round trip; a refetch covers the case
+   * where the server could not build it.
+   */
+  async onEntrySaved(streak = null) {
+    await this.refresh({ announce: true, punch: true, status: streak });
+
+    if (!this.status || !this.status.visible) return;
+
+    this.trail.playDraw();
+
+    if (this.status.milestoneReached) {
+      this.showMilestone(this.status.milestoneReached);
+      this.trail.playSweep();
+    }
   }
 
   attachEvents() {
@@ -113,12 +142,13 @@ export class StreakManager {
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  async refresh({ announce = false } = {}) {
+  async refresh({ announce = false, punch = false, status = null } = {}) {
     if (!this.api.token) return;
 
     try {
-      this.status = await this.api.get("/streak");
-      this.render({ announce });
+      this.status = status || (await this.api.get("/streak"));
+      this.render({ announce, punch });
+      this.trail.setData(this.status);
     } catch (_error) {
       // A streak failure is never worth interrupting the diary for.
       this.elements.streak.hidden = true;
@@ -129,7 +159,7 @@ export class StreakManager {
     if (document.visibilityState === "visible") this.refresh();
   }
 
-  render({ announce = false } = {}) {
+  render({ announce = false, punch = false } = {}) {
     const status = this.status;
 
     // Rule S-8: a user with no history is never shown a zero.
@@ -152,10 +182,57 @@ export class StreakManager {
 
     this.renderCard(status);
 
+    if (punch) this.punchCount();
+
     if (announce && status.current !== this.lastAnnouncedCount) {
       this.elements.streakLive.textContent = `Streak: ${formatNights(status.current)}.`;
       this.lastAnnouncedCount = status.current;
     }
+  }
+
+  // Step 3 of the reward beat, delayed so it lands just after the trail starts drawing
+  // rather than competing with it.
+  punchCount() {
+    if (prefersReducedMotion()) return;
+
+    window.clearTimeout(this.punchTimer);
+    this.punchTimer = window.setTimeout(() => {
+      const pill = this.elements.streakBtn;
+      pill.classList.remove("streak-punch");
+      void pill.offsetWidth;
+      pill.classList.add("streak-punch");
+      window.setTimeout(() => pill.classList.remove("streak-punch"), COUNT_PUNCH_MS);
+    }, COUNT_PUNCH_DELAY_MS);
+  }
+
+  showMilestone(milestone) {
+    const toast = this.elements.streakToast;
+    if (!toast) return;
+
+    this.elements.streakToastText.textContent = `${milestone.name} · ${formatNights(milestone.days)}`;
+    toast.hidden = false;
+
+    window.requestAnimationFrame(() => toast.classList.add("open"));
+
+    window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => this.hideMilestone(), MILESTONE_TOAST_MS);
+  }
+
+  hideMilestone({ immediate = false } = {}) {
+    const toast = this.elements.streakToast;
+    if (!toast || toast.hidden) return;
+
+    window.clearTimeout(this.toastTimer);
+    toast.classList.remove("open");
+
+    if (immediate) {
+      toast.hidden = true;
+      return;
+    }
+
+    window.setTimeout(() => {
+      if (!toast.classList.contains("open")) toast.hidden = true;
+    }, 240);
   }
 
   renderCard(status) {
@@ -265,7 +342,9 @@ export class StreakManager {
 
     if (!(await this.setVisibility(false))) return;
 
+    this.hideMilestone({ immediate: true });
     this.render();
+    this.trail.setData(this.status);
     this.setStatus("Streaks hidden. Turn them back on from the date filter panel.");
   }
 

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | Daily journaling streaks for Star Map Diary |
-| Status | Phases 1–2 implemented (engine + quiet UI) — Phases 3–4 not started |
+| Status | Phases 1–3 implemented (engine, quiet UI, constellation trail) — Phase 4 not started |
 | Author | Design + engineering spec |
 | Date | 2026-08-09 |
 | Related systems | `diary_entries`, `reminder_settings`, `/api/reminders/*`, `SceneManager` constellation layer |
@@ -308,9 +308,11 @@ If read latency becomes a problem, add `streak_cache(user_id pk, computed_for_lo
   "state": "active_pending",   // empty | active_today | active_pending | at_risk | grace_used | broken
   "todayLogged": false,
   "lastEntryLocalDate": "2026-08-09",
+  "currentRunStart": "2026-07-31", // first day of the live run; the trail needs it
   "todayLocalDate": "2026-08-10",
   "timezone": "Asia/Karachi",
   "graceUsedOn": null,          // local date bridged by a rest day, if any
+  "restedDates": [],            // every bridged day in the live run
   "nextMilestone": { "days": 14, "remaining": 4, "name": "Fortnight" },
   "recentDays": [               // last 60 local dates, ascending, for the history grid
     { "date": "2026-06-12", "logged": true },
@@ -537,7 +539,7 @@ Unit tests belong on the pure fold in `src/services/streaks/compute.js` — it t
 | --- | --- | --- |
 | **1 — Engine** ✅ | `src/services/streaks/compute.js` (pure fold), `entry_local_dates` RPC, `GET /api/streak`, `createdAt` clamp (§7.6). No UI. | Cases 1–18 green as unit tests; API verified against a seeded account with real history |
 | **2 — Quiet UI** ✅ | Streak pill + card + history grid, `streak_settings` table, opt-out, `visible` plumbed through. No trail, no celebrations. | Existing users see their true streak on first load (G-2); opt-out works end to end |
-| **3 — The sky** | Constellation trail in `SceneManager`, reward beat, milestones, reduced-motion support. Cache only if measured as needed. | No frame-rate regression at 365 days (case 23) |
+| **3 — The sky** ✅ | Constellation trail in `SceneManager`, reward beat, milestones, reduced-motion support. Cache only if measured as needed. | No frame-rate regression at 365 days (case 23) |
 | **4 — Reminders + tuning** | N-1 copy change, analytics dashboards, rest-day window tuning. | Guardrail metrics (§10) stable for 4 weeks |
 
 Ship Phase 1+2 together; they are the feature. Phase 3 is what makes it *this* product's feature.
@@ -583,6 +585,28 @@ Deviations and decisions:
 - **`#date-filter-popover[hidden]` was fixed in passing.** It carries an explicit `display: grid`, which beats the user-agent rule for `[hidden]`, so while "closed" it stayed in the layout at `opacity: 0` and kept intercepting clicks. The streak card would have had the same defect; both are now explicitly `display: none` when hidden.
 
 Verified in Chromium via a stub-API harness (62 assertions): every state renders, no state ever shows `0`, the broken pill uses a hollow glyph so the state does not depend on colour, Escape closes the card and returns focus, the two popovers are mutually exclusive, the opt-out round trip restores the real value rather than resetting it, touch targets clear 44px, and the mobile card fits a 390px viewport with no horizontal overflow.
+
+### 13.3 Phase 3 — as built
+
+| Spec | Delivered in |
+| --- | --- |
+| Constellation trail (§8.1) | `public/js/three/scene-manager.js` — `setStreakData`, `buildStreakSegments`, `rebuildStreakTrail` |
+| Reward beat (§8.5) | `scene-manager.js` (`flareEntry`, `playTrailDraw`) + `streaks.js` (`punchCount`, live region) |
+| Milestones (§8.6) | `src/services/streaks/after-entry.js`, `streak_settings.celebrated_milestones`, `#streak-toast`, `playMilestoneSweep` |
+| `currentRunStart` for run identification | `src/services/streaks/compute.js` |
+| Streak returned with a saved entry | `src/routes/entries.routes.js` |
+
+Deviations and decisions:
+
+- **Milestones fire on an exact match, not "highest milestone at or below current".** An existing user with 200 days of history would otherwise be handed a Deep Field celebration on their next entry for a threshold they crossed months ago. They get the next one they genuinely cross. This is the same reasoning as P-1 applied to celebrations: history earns the number, but it does not manufacture a moment.
+- **A milestone that cannot be persisted is not shown.** If the write to `celebrated_milestones` fails, the toast is suppressed — otherwise it would fire again on the next entry, and the one after that.
+- **`POST /api/entries` returns the whole streak payload**, not the four fields sketched in §7.5, plus `milestoneReached`. The client needs `recentDays`, `currentRunStart` and `restedDates` to refresh the grid and rebuild the trail; returning them here is what removes the second round trip. A failure is swallowed and the field comes back `null`, so the client refetches.
+- **The milestone "trace" is a travelling highlight, not a shader.** §8.6 asks for the run's trail to trace end-to-end. With merged geometry a true per-pixel trace needs a custom shader; instead a short three-segment bright `LineSegments` advances along the run over 1.4s. Same beat, no shader, and it costs one extra draw call that exists only while a milestone is playing.
+- **One merged `LineSegments` per kind** (history / active / bridge / sweep) rather than an object per link, which is what the existing sentiment constellations do. A 365-day trail is 364 segments in 4 objects instead of 364 draw calls.
+- **Rest days are drawn, not hidden** — dashed and dimmer, so a bridged day is visible as a bridge.
+- **Ended runs stay in the sky** at low opacity and desaturated, so a break never erases what was built (P-3).
+
+Verified in Chromium with a stubbed three.js: 32 assertions on trail geometry (run/history/bridge bucketing, one node per day regardless of entry count, unbridged gaps left open, date filter and opt-out both clearing the trail, the draw and sweep animations starting and completing, and reduced motion producing a static trail with no animation state), and 15 more driving the **real `index.html` and `app.js`** end to end through a stubbed API — load, trail build, write an entry, flare, count update, milestone toast — with no console errors. 76 DOM assertions and 51 backend tests also pass.
 
 ---
 

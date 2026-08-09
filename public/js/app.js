@@ -47,7 +47,9 @@ const elements = {
   streakNext: document.getElementById("streak-next"),
   streakHideBtn: document.getElementById("streak-hide-btn"),
   streakShowBtn: document.getElementById("streak-show-btn"),
-  streakLive: document.getElementById("streak-live")
+  streakLive: document.getElementById("streak-live"),
+  streakToast: document.getElementById("streak-toast"),
+  streakToastText: document.getElementById("streak-toast-text")
 };
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
@@ -78,7 +80,13 @@ const streaks = new StreakManager({
   elements,
   setStatus,
   // The streak card and the date filter sit side by side, so only one may be open.
-  onOpen: () => closeDateFilterPopover()
+  onOpen: () => closeDateFilterPopover(),
+  // The constellation trail is the primary reward; the pill is only the readout.
+  trail: {
+    setData: (status) => scene.setStreakData(status),
+    playDraw: () => scene.playTrailDraw(),
+    playSweep: () => scene.playMilestoneSweep()
+  }
 });
 
 wireEvents();
@@ -269,8 +277,9 @@ async function handleSubmit() {
   try {
     const response = await api.post("/entries", draftEntry);
     scene.addEntry(response.entry);
+    scene.flareEntry(response.entry.id);
     await reminders.onEntrySaved();
-    await streaks.onEntrySaved();
+    await streaks.onEntrySaved(response.streak);
     setStatus("Entry saved.");
     elements.input.value = "";
     syncEntryInputHeight();

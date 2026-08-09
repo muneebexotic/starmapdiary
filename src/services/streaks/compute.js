@@ -121,6 +121,7 @@ function computeStreak(localDates, todayLocal, { graceEnabled = true } = {}) {
       state: "empty",
       todayLogged: false,
       lastEntryLocalDate: null,
+      currentRunStart: null,
       graceUsedOn: null,
       restedDates: []
     };
@@ -153,6 +154,7 @@ function computeStreak(localDates, todayLocal, { graceEnabled = true } = {}) {
       state,
       todayLogged: false,
       lastEntryLocalDate,
+      currentRunStart: null,
       graceUsedOn: null,
       restedDates: []
     };
@@ -161,25 +163,26 @@ function computeStreak(localDates, todayLocal, { graceEnabled = true } = {}) {
   const restedDates = [];
   let current = 1;
   let lastBridgeAt = null;
+  let index = dates.length - 1;
 
   if (trailingBridge) {
     restedDates.push(addDays(lastEntryLocalDate, 1));
     lastBridgeAt = 0;
   }
 
-  for (let i = dates.length - 1; i > 0; ) {
-    const gap = daysBetween(dates[i], dates[i - 1]);
+  while (index > 0) {
+    const gap = daysBetween(dates[index], dates[index - 1]);
 
     if (gap === 1) {
-      i -= 1;
+      index -= 1;
       current += 1;
       continue;
     }
 
     if (gap === 2 && canBridge({ qualifyingDaysSeen: current, lastBridgeAt, graceEnabled })) {
-      restedDates.push(addDays(dates[i - 1], 1));
+      restedDates.push(addDays(dates[index - 1], 1));
       lastBridgeAt = current;
-      i -= 1;
+      index -= 1;
       current += 1;
       continue;
     }
@@ -193,6 +196,9 @@ function computeStreak(localDates, todayLocal, { graceEnabled = true } = {}) {
     state,
     todayLogged: state === "active_today",
     lastEntryLocalDate,
+    // Where the live run begins. The constellation trail needs this to know which segments
+    // belong to the run in progress and which are older history.
+    currentRunStart: dates[index],
     graceUsedOn: restedDates.length > 0 ? restedDates[0] : null,
     restedDates
   };

@@ -1,6 +1,8 @@
 const express = require("express");
 const { requireAuth } = require("../middleware/auth");
+const { env } = require("../config/env");
 const { normalizeEntry, validateCreateEntryPayload } = require("../domain/entries");
+const { buildStreakAfterEntry } = require("../services/streaks/after-entry");
 
 const router = express.Router();
 
@@ -35,7 +37,22 @@ router.post("/", requireAuth, async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
-  return res.status(201).json({ entry: normalizeEntry(data) });
+
+  // Writing the diary is the product; the streak is decoration. A failure here must never
+  // turn a saved entry into an error the user sees.
+  let streak = null;
+  try {
+    streak = await buildStreakAfterEntry({
+      scopedClient: req.auth.scopedClient,
+      userId: req.auth.user.id,
+      headerTimezone: String(req.headers["x-client-timezone"] || "").trim(),
+      graceEnabled: env.streakGraceEnabled
+    });
+  } catch (streakError) {
+    console.warn(`[streaks] could not build streak after entry: ${streakError.message}`);
+  }
+
+  return res.status(201).json({ entry: normalizeEntry(data), streak });
 });
 
 module.exports = router;

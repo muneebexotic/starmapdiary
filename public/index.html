@@ -58,6 +58,13 @@
     <p id="streak-live" class="sr-only" aria-live="polite"></p>
   </div>
 
+  <div id="streak-toast" role="status" aria-live="polite" hidden>
+    <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z" />
+    </svg>
+    <p id="streak-toast-text"></p>
+  </div>
+
   <div id="auth-panel">
     <div id="auth-row">
       <input id="email-input" class="auth-input" type="email" autocomplete="email" placeholder="Email" />

@@ -67,6 +67,11 @@ The streak is derived from `diary_entries` on every read rather than stored as a
 existing history counts immediately and no backfill is needed. Design rationale, UX research
 and the remaining phases are in `docs/streaks-frd.md`.
 
+`POST /api/entries` returns the recomputed streak alongside the saved entry, so the client can
+extend the constellation trail and update the count without a second request. Consecutive
+journalling days are joined by a gold trail in the galaxy — the streak is something you watch
+yourself draw, not just a number.
+
 `PUT /api/streak/settings` with `{ "visible": false }` hides every streak surface. The streak
 keeps accruing while hidden, so turning it back on shows the real value. Users re-enable it
 from the "Show streaks" link in the date filter panel.

@@ -10,6 +10,31 @@ function localDateString(iso) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+const MS_PER_DAY = 86400000;
+
+function toEpochDay(localDate) {
+  const [y, m, d] = String(localDate).split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / MS_PER_DAY;
+}
+
+function dayGap(later, earlier) {
+  return toEpochDay(later) - toEpochDay(earlier);
+}
+
+function nextDay(localDate) {
+  return new Date((toEpochDay(localDate) + 1) * MS_PER_DAY).toISOString().slice(0, 10);
+}
+
+const TRAIL_GOLD = "#f5c96a";
+const TRAIL_FADED = "#8fa1bd";
+const ACTIVE_OPACITY = 0.34;
+const HISTORY_OPACITY = 0.11;
+const BRIDGE_OPACITY = 0.18;
+const DRAW_DURATION_MS = 600;
+const FLARE_DURATION_MS = 520;
+const SWEEP_DURATION_MS = 1400;
+const SWEEP_WINDOW = 3;
+
 export class SceneManager {
   constructor({ container, tooltip, onStarSelected }) {
     this.container = container;
@@ -60,6 +85,18 @@ export class SceneManager {
     this.constellationGroup = new this.THREE.Group();
     this.scene.add(this.constellationGroup);
 
+    // The streak trail lives in its own group so it can be rebuilt, hidden by the date
+    // filter, or switched off entirely without disturbing the sentiment constellations.
+    this.streakGroup = new this.THREE.Group();
+    this.scene.add(this.streakGroup);
+
+    this.streakData = null;
+    this.streakLines = { history: null, active: null, bridge: null, sweep: null };
+    this.activeSegments = [];
+    this.trailDraw = null;
+    this.trailSweep = null;
+    this.prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     this.starTexture = createGlowTexture(this.THREE);
     this.backgroundField = createBackgroundStarfield(this.THREE);
     this.scene.add(this.backgroundField);
@@ -87,6 +124,7 @@ export class SceneManager {
   filterByDate(dateStr) {
     this.filterDate = dateStr;
     this.constellationTargetOpacity = 0;
+    this.updateStreakVisibility();
     for (let i = 0; i < this.diaryStars.length; i += 1) {
       const star = this.diaryStars[i];
       const entryDate = localDateString(star.userData.entry.createdAt);
@@ -97,6 +135,7 @@ export class SceneManager {
   clearFilter() {
     this.filterDate = null;
     this.constellationTargetOpacity = 0.11;
+    this.updateStreakVisibility();
     for (let i = 0; i < this.diaryStars.length; i += 1) {
       this.diaryStars[i].userData.targetOpacity = 1;
     }
@@ -107,6 +146,10 @@ export class SceneManager {
     this.constellationTargetOpacity = 0.11;
     this.hoveredStar = null;
     this.tooltip.style.opacity = "0";
+
+    this.streakData = null;
+    this.disposeStreakTrail();
+    this.updateStreakVisibility();
 
     while (this.diaryStars.length > 0) {
       const star = this.diaryStars.pop();
@@ -254,10 +297,259 @@ export class SceneManager {
     }
   }
 
+  // ── Streak trail ─────────────────────────────────────────
+  // Consecutive journalling days are joined in chronological order, so a streak is a
+  // constellation the user watches themselves draw rather than a number on a chip.
+
+  setStreakData(data) {
+    this.streakData = data && data.visible ? data : null;
+    this.rebuildStreakTrail();
+  }
+
+  updateStreakVisibility() {
+    this.streakGroup.visible = Boolean(this.streakData) && !this.filterDate;
+  }
+
+  disposeStreakTrail() {
+    while (this.streakGroup.children.length > 0) {
+      const line = this.streakGroup.children[0];
+      this.streakGroup.remove(line);
+      if (line.geometry) line.geometry.dispose();
+      if (line.material) line.material.dispose();
+    }
+
+    this.streakLines = { history: null, active: null, bridge: null, sweep: null };
+    this.activeSegments = [];
+    this.trailDraw = null;
+    this.trailSweep = null;
+  }
+
+  // A day with several entries contributes one node — its first star — so the trail tracks
+  // days, not volume.
+  firstStarByLocalDate() {
+    const byDate = new Map();
+
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      const star = this.diaryStars[i];
+      const date = localDateString(star.userData.entry.createdAt);
+      const existing = byDate.get(date);
+
+      if (!existing || Date.parse(star.userData.entry.createdAt) < Date.parse(existing.userData.entry.createdAt)) {
+        byDate.set(date, star);
+      }
+    }
+
+    return byDate;
+  }
+
+  buildStreakSegments() {
+    const byDate = this.firstStarByLocalDate();
+    const dates = [...byDate.keys()].sort();
+    const rested = new Set(this.streakData?.restedDates || []);
+    const runStart = this.streakData?.currentRunStart || null;
+
+    const history = [];
+    const active = [];
+    const bridge = [];
+
+    this.activeSegments = [];
+
+    for (let i = 1; i < dates.length; i += 1) {
+      const from = byDate.get(dates[i - 1]).position;
+      const to = byDate.get(dates[i]).position;
+      const gap = dayGap(dates[i], dates[i - 1]);
+
+      let bucket = null;
+
+      if (gap === 1) {
+        // Runs that have already ended stay in the sky, just dimmer and desaturated.
+        bucket = runStart && dates[i - 1] >= runStart ? active : history;
+      } else if (gap === 2 && rested.has(nextDay(dates[i - 1]))) {
+        bucket = bridge;
+      }
+
+      if (!bucket) continue;
+
+      bucket.push(from.x, from.y, from.z, to.x, to.y, to.z);
+      if (bucket === active) {
+        this.activeSegments.push([from.x, from.y, from.z, to.x, to.y, to.z]);
+      }
+    }
+
+    return { history, active, bridge };
+  }
+
+  makeTrailMaterial(kind) {
+    if (kind === "bridge") {
+      // A bridged rest day is drawn, but drawn differently — the gap is not hidden.
+      return new this.THREE.LineDashedMaterial({
+        color: new this.THREE.Color(TRAIL_GOLD),
+        transparent: true,
+        opacity: BRIDGE_OPACITY,
+        depthWrite: false,
+        dashSize: 2.4,
+        gapSize: 2.4
+      });
+    }
+
+    return new this.THREE.LineBasicMaterial({
+      color: new this.THREE.Color(kind === "active" ? TRAIL_GOLD : TRAIL_FADED),
+      transparent: true,
+      opacity: kind === "active" ? ACTIVE_OPACITY : HISTORY_OPACITY,
+      depthWrite: false
+    });
+  }
+
+  // One merged LineSegments per kind rather than an object per link: a 365-day trail stays
+  // at a handful of draw calls (QA case 23).
+  makeTrailLine(positions, kind) {
+    if (positions.length === 0) return null;
+
+    const geometry = new this.THREE.BufferGeometry();
+    geometry.setAttribute("position", new this.THREE.Float32BufferAttribute(positions, 3));
+
+    const line = new this.THREE.LineSegments(geometry, this.makeTrailMaterial(kind));
+    if (kind === "bridge") line.computeLineDistances();
+
+    this.streakGroup.add(line);
+    return line;
+  }
+
+  makeSweepLine() {
+    const geometry = new this.THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new this.THREE.Float32BufferAttribute(new Float32Array(SWEEP_WINDOW * 6), 3)
+    );
+
+    const material = new this.THREE.LineBasicMaterial({
+      color: new this.THREE.Color(TRAIL_GOLD),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false
+    });
+
+    const line = new this.THREE.LineSegments(geometry, material);
+    this.streakGroup.add(line);
+    return line;
+  }
+
+  rebuildStreakTrail() {
+    this.disposeStreakTrail();
+    this.updateStreakVisibility();
+
+    if (!this.streakData) return;
+
+    const { history, active, bridge } = this.buildStreakSegments();
+
+    this.streakLines.history = this.makeTrailLine(history, "history");
+    this.streakLines.active = this.makeTrailLine(active, "active");
+    this.streakLines.bridge = this.makeTrailLine(bridge, "bridge");
+
+    if (this.activeSegments.length > 0) {
+      this.streakLines.sweep = this.makeSweepLine();
+    }
+  }
+
+  // Step 2 of the reward beat: the newest segment grows out of yesterday's star.
+  playTrailDraw() {
+    const line = this.streakLines.active;
+    if (!line || this.prefersReducedMotion) return;
+
+    const attribute = line.geometry.getAttribute("position");
+    if (attribute.count < 2) return;
+
+    const tailIndex = attribute.count - 1;
+    const anchorIndex = attribute.count - 2;
+
+    this.trailDraw = {
+      attribute,
+      index: tailIndex,
+      from: {
+        x: attribute.getX(anchorIndex),
+        y: attribute.getY(anchorIndex),
+        z: attribute.getZ(anchorIndex)
+      },
+      to: {
+        x: attribute.getX(tailIndex),
+        y: attribute.getY(tailIndex),
+        z: attribute.getZ(tailIndex)
+      },
+      start: performance.now()
+    };
+
+    attribute.setXYZ(tailIndex, this.trailDraw.from.x, this.trailDraw.from.y, this.trailDraw.from.z);
+    attribute.needsUpdate = true;
+  }
+
+  // Step 1 of the reward beat.
+  flareEntry(entryId) {
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      if (this.diaryStars[i].userData.entry.id === entryId) {
+        this.diaryStars[i].userData.flareStart = performance.now();
+        return;
+      }
+    }
+  }
+
+  // Milestone: a highlight travels the length of the run, once.
+  playMilestoneSweep() {
+    if (this.prefersReducedMotion) return;
+    if (!this.streakLines.sweep || this.activeSegments.length === 0) return;
+
+    this.trailSweep = { start: performance.now() };
+  }
+
+  updateTrailDraw(now) {
+    if (!this.trailDraw) return;
+
+    const { attribute, index, from, to, start } = this.trailDraw;
+    const progress = Math.min(1, (now - start) / DRAW_DURATION_MS);
+    const eased = 1 - Math.pow(1 - progress, 3);
+
+    attribute.setXYZ(
+      index,
+      from.x + (to.x - from.x) * eased,
+      from.y + (to.y - from.y) * eased,
+      from.z + (to.z - from.z) * eased
+    );
+    attribute.needsUpdate = true;
+
+    if (progress >= 1) this.trailDraw = null;
+  }
+
+  updateTrailSweep(now) {
+    const sweep = this.streakLines.sweep;
+    if (!this.trailSweep || !sweep) return;
+
+    const segments = this.activeSegments;
+    const progress = (now - this.trailSweep.start) / SWEEP_DURATION_MS;
+
+    if (progress >= 1 || segments.length === 0) {
+      this.trailSweep = null;
+      sweep.material.opacity = 0;
+      return;
+    }
+
+    const attribute = sweep.geometry.getAttribute("position");
+    const head = Math.floor(progress * segments.length);
+
+    for (let s = 0; s < SWEEP_WINDOW; s += 1) {
+      const segment = segments[Math.max(0, Math.min(segments.length - 1, head - s))];
+      for (let k = 0; k < 6; k += 1) {
+        attribute.array[s * 6 + k] = segment[k];
+      }
+    }
+
+    attribute.needsUpdate = true;
+    sweep.material.opacity = 0.85 * Math.sin(Math.PI * progress);
+  }
+
   animate() {
     requestAnimationFrame(() => this.animate());
 
-    const t = performance.now() * 0.001;
+    const now = performance.now();
+    const t = now * 0.001;
     this.backgroundField.rotation.y += 0.00018;
     this.backgroundField.rotation.x = Math.sin(t * 0.03) * 0.02;
 
@@ -273,8 +565,25 @@ export class SceneManager {
         star.material.opacity = star.userData.currentOpacity;
       }
 
-      star.scale.setScalar(star.userData.baseScale * pulse);
+      let flare = 1;
+      if (star.userData.flareStart) {
+        const progress = (now - star.userData.flareStart) / FLARE_DURATION_MS;
+        if (progress >= 1) {
+          star.userData.flareStart = null;
+        } else {
+          flare = 1 + 0.3 * Math.sin(Math.PI * progress);
+        }
+      }
+
+      star.scale.setScalar(star.userData.baseScale * pulse * flare);
     }
+
+    if (this.streakLines.active && !this.prefersReducedMotion) {
+      this.streakLines.active.material.opacity = ACTIVE_OPACITY + Math.sin(t * 1.1) * 0.06;
+    }
+
+    this.updateTrailDraw(now);
+    this.updateTrailSweep(now);
 
     for (let i = 0; i < this.constellationGroup.children.length; i += 1) {
       const line = this.constellationGroup.children[i];

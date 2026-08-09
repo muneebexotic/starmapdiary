@@ -98,6 +98,13 @@ function getNextMilestone(current) {
   return { days: next.days, remaining: next.days - current, name: next.name };
 }
 
+// Exact match, not "highest milestone at or below current". An existing user whose history
+// already spans 200 days should not be handed a Deep Field celebration for a threshold they
+// crossed months ago — they get the next one they actually cross.
+function getReachedMilestone(current) {
+  return MILESTONES.find((milestone) => milestone.days === current) || null;
+}
+
 function buildRecentDays({ dates, restedDates, todayLocal }) {
   const logged = new Set(dates);
   const rested = new Set(restedDates);
@@ -134,9 +141,11 @@ async function getStreakForUser({
     state,
     todayLogged: streak.todayLogged,
     lastEntryLocalDate: streak.lastEntryLocalDate,
+    currentRunStart: streak.currentRunStart,
     todayLocalDate: todayLocal,
     timezone,
     graceUsedOn: streak.graceUsedOn,
+    restedDates: streak.restedDates,
     nextMilestone: getNextMilestone(streak.current),
     recentDays: buildRecentDays({ dates, restedDates: streak.restedDates, todayLocal }),
     // Opting out hides every streak surface but never stops the streak accruing, because
@@ -150,5 +159,6 @@ module.exports = {
   resolveTimezone,
   isAtRisk,
   getNextMilestone,
+  getReachedMilestone,
   buildRecentDays
 };

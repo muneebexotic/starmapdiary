@@ -1021,6 +1021,65 @@ body.composer-hidden #ui-panel {
   justify-self: start;
 }
 
+/* Step 3 of the reward beat: the count ticks up with a short punch. */
+@keyframes streakPunch {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+#streak-btn.streak-punch {
+  animation: streakPunch 0.22s cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+/* Milestone acknowledgement. Sits above the composer, never covers it, never blocks input. */
+#streak-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(96px, calc(var(--sab) + 88px + var(--keyboard-offset)));
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(245, 201, 106, 0.4);
+  background:
+    linear-gradient(160deg, rgba(245, 201, 106, 0.16), rgba(114, 166, 255, 0.1) 58%, rgba(16, 24, 42, 0.18)),
+    rgba(10, 15, 26, 0.94);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px) scale(0.96);
+  transition: opacity 0.22s ease, transform 0.25s cubic-bezier(0.2, 0.82, 0.18, 1);
+  pointer-events: none;
+}
+
+#streak-toast.open {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+#streak-toast[hidden] {
+  display: none;
+}
+
+#streak-toast .streak-icon {
+  width: 16px;
+  height: 16px;
+  color: #f5c96a;
+}
+
+#streak-toast-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  color: rgba(250, 243, 230, 0.96);
+  white-space: nowrap;
+}
+
 /* ── End Streak ───────────────────────────────────────────── */
 
 /* Hide hover-only tooltip on touch devices */
@@ -1114,6 +1173,16 @@ body.composer-hidden #ui-panel {
 
   #streak-btn {
     font-size: 13px;
+  }
+
+  /* Clears the taller mobile composer. */
+  #streak-toast {
+    bottom: max(112px, calc(var(--sab) + 104px + var(--keyboard-offset)));
+    max-width: calc(100vw - 32px);
+  }
+
+  #streak-toast-text {
+    white-space: normal;
   }
 
   /* Anchored to the cluster rather than the pill, so a wide card cannot run off-screen. */

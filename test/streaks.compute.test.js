@@ -69,6 +69,7 @@ test("case 3: a user with no entries is empty, not zero-with-UI", () => {
     state: "empty",
     todayLogged: false,
     lastEntryLocalDate: null,
+    currentRunStart: null,
     graceUsedOn: null,
     restedDates: []
   });
