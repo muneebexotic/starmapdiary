@@ -23,6 +23,24 @@
   --radius-card: 24px;
   --radius-control: 20px;
   --radius-pill: 999px;
+  /* Top-left meta-controls cluster: date filter, then streak. Shared so the two stay
+     aligned and correctly spaced when the control size changes on small screens. */
+  --cluster-top: max(12px, calc(var(--sat) + 4px));
+  --cluster-left: max(12px, calc(var(--sal) + 12px));
+  --cluster-btn: 44px;
+  --cluster-gap: 8px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 * {
@@ -677,8 +695,8 @@ body.composer-hidden #ui-panel {
 
 #date-filter {
   position: fixed;
-  top: max(12px, calc(var(--sat) + 4px));
-  left: max(12px, calc(var(--sal) + 12px));
+  top: var(--cluster-top);
+  left: var(--cluster-left);
   z-index: 22;
   display: flex;
   flex-direction: column;
@@ -790,6 +808,221 @@ body.composer-hidden #ui-panel {
 
 /* ── End Date Filter ──────────────────────────────────────── */
 
+/* ── Streak ──────────────────────────────────────────────── */
+
+/* These carry an explicit display, which beats the UA rule for [hidden] — without this they
+   stay in the layout while invisible and keep intercepting clicks. */
+#date-filter-popover[hidden],
+#streak[hidden],
+#streak-popover[hidden] {
+  display: none;
+}
+
+#streak {
+  position: fixed;
+  top: var(--cluster-top);
+  left: calc(var(--cluster-left) + var(--cluster-btn) + var(--cluster-gap));
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#streak-btn {
+  height: var(--cluster-btn);
+  min-width: var(--cluster-btn);
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.2s ease, opacity 0.16s ease, box-shadow 0.25s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.streak-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+#streak-count {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Today's star is placed. */
+#streak-btn[data-state="active_today"] {
+  box-shadow: 0 0 0 2px rgba(245, 201, 106, 0.6), 0 0 14px rgba(245, 201, 106, 0.25), 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Today is still open and the user's own last reminder slot has passed. Amber and a ring,
+   never red — and the ring is a shape cue, so the state does not depend on colour alone. */
+#streak-btn[data-state="at_risk"] {
+  box-shadow: 0 0 0 2px rgba(245, 201, 106, 0.5), 0 8px 18px rgba(0, 0, 0, 0.35);
+  animation: streakAtRisk 2.6s ease-in-out infinite;
+}
+
+/* A rest day carried the streak over. */
+#streak-btn[data-state="grace_used"] {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45), 0 0 0 3px rgba(114, 166, 255, 0.28), 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Between a break and the next entry: the longest streak, quietly. Hollow glyph so the
+   state reads without colour. */
+#streak-btn[data-state="broken"] {
+  background: rgba(10, 15, 26, 0.82);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--muted);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+#streak-btn[data-state="broken"]:hover {
+  background: rgba(14, 20, 34, 0.9);
+}
+
+#streak-btn[data-state="broken"] .streak-icon {
+  fill: none;
+}
+
+@keyframes streakAtRisk {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 201, 106, 0.5), 0 8px 18px rgba(0, 0, 0, 0.35); }
+  50% { box-shadow: 0 0 0 3px rgba(245, 201, 106, 0.75), 0 0 16px rgba(245, 201, 106, 0.3), 0 8px 18px rgba(0, 0, 0, 0.35); }
+}
+
+#streak-popover {
+  width: min(88vw, 292px);
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(160deg, rgba(245, 201, 106, 0.09), rgba(114, 166, 255, 0.07) 58%, rgba(16, 24, 42, 0.1)),
+    rgba(10, 15, 26, 0.94);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  display: grid;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.95);
+  transition: opacity 0.22s ease, transform 0.25s cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#streak-popover.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#streak-headline {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgba(250, 243, 230, 0.95);
+}
+
+#streak-longest,
+#streak-next {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+/* Capped rather than fluid: at full width the grid dominates the card, which works against
+   keeping this surface quiet (principle P-2). */
+#streak-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 26px));
+  justify-content: start;
+  gap: 5px;
+}
+
+.streak-day {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.streak-day.is-logged {
+  border-color: rgba(245, 201, 106, 0.5);
+  background: rgba(245, 201, 106, 0.72);
+}
+
+.streak-day.is-rested {
+  border-color: rgba(114, 166, 255, 0.75);
+  background: rgba(114, 166, 255, 0.16);
+}
+
+.streak-day.is-today {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.42);
+}
+
+#streak-grid-legend {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 11px;
+  color: rgba(220, 228, 242, 0.55);
+}
+
+#streak-grid-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#streak-grid-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+#streak-grid-legend i.is-logged {
+  border-color: rgba(245, 201, 106, 0.5);
+  background: rgba(245, 201, 106, 0.72);
+}
+
+#streak-grid-legend i.is-rested {
+  border-color: rgba(114, 166, 255, 0.75);
+  background: rgba(114, 166, 255, 0.16);
+}
+
+.streak-link {
+  justify-self: start;
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.streak-link:hover {
+  color: var(--text);
+}
+
+#streak-show-btn {
+  justify-self: start;
+}
+
+/* ── End Streak ───────────────────────────────────────────── */
+
 /* Hide hover-only tooltip on touch devices */
 @media (hover: none) {
   #tooltip { display: none; }
@@ -872,6 +1105,25 @@ body.composer-hidden #ui-panel {
   #date-filter-btn {
     width: 46px;
     height: 46px;
+  }
+
+  /* Keeps the streak pill aligned with the larger touch target next to it. */
+  :root {
+    --cluster-btn: 46px;
+  }
+
+  #streak-btn {
+    font-size: 13px;
+  }
+
+  /* Anchored to the cluster rather than the pill, so a wide card cannot run off-screen. */
+  #streak-popover {
+    position: fixed;
+    top: calc(var(--cluster-top) + var(--cluster-btn) + var(--cluster-gap));
+    left: var(--cluster-left);
+    right: max(12px, calc(var(--sar) + 12px));
+    width: auto;
+    max-width: 340px;
   }
 
   #date-filter-clear {

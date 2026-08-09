@@ -23,6 +23,11 @@ export class ApiClient {
   async request(method, path, { body, auth = true } = {}) {
     const headers = { "Content-Type": "application/json" };
 
+    // Lets the server resolve local dates correctly on a first-ever load, before reminder
+    // settings (which carry the stored timezone) have been written.
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone) headers["X-Client-Timezone"] = timezone;
+
     if (auth) {
       const token = this.token;
       if (!token) throw new Error("Please log in to continue.");

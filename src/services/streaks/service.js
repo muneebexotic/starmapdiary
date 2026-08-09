@@ -116,6 +116,7 @@ async function getStreakForUser({
   settingsRow,
   headerTimezone,
   graceEnabled = true,
+  visible = true,
   now = DateTime.utc()
 }) {
   const timezone = resolveTimezone({ settingsRow, headerTimezone });
@@ -138,9 +139,9 @@ async function getStreakForUser({
     graceUsedOn: streak.graceUsedOn,
     nextMilestone: getNextMilestone(streak.current),
     recentDays: buildRecentDays({ dates, restedDates: streak.restedDates, todayLocal }),
-    // Phase 2 reads this from streak_settings; the contract is fixed now so the client
-    // never has to change shape when the opt-out lands.
-    visible: true
+    // Opting out hides every streak surface but never stops the streak accruing, because
+    // it is derived from history — switching back on restores the true value (rule P-6).
+    visible
   };
 }
 

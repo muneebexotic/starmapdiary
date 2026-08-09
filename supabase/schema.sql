@@ -62,6 +62,37 @@ $$;
 
 grant execute on function public.entry_local_dates(text) to authenticated;
 
+-- Presentation state only. The streak itself is never stored here: losing this table would
+-- re-show a celebration or reset the opt-out, but could never change a streak number.
+create table if not exists public.streak_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  visible boolean not null default true,
+  celebrated_milestones int[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.streak_settings enable row level security;
+
+drop policy if exists "streak_settings_select_own" on public.streak_settings;
+create policy "streak_settings_select_own"
+  on public.streak_settings
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "streak_settings_insert_own" on public.streak_settings;
+create policy "streak_settings_insert_own"
+  on public.streak_settings
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "streak_settings_update_own" on public.streak_settings;
+create policy "streak_settings_update_own"
+  on public.streak_settings
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 create table if not exists public.reminder_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   timezone text not null,

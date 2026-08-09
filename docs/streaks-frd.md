@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | Daily journaling streaks for Star Map Diary |
-| Status | Phase 1 (engine) implemented — Phases 2–4 not started |
+| Status | Phases 1–2 implemented (engine + quiet UI) — Phases 3–4 not started |
 | Author | Design + engineering spec |
 | Date | 2026-08-09 |
 | Related systems | `diary_entries`, `reminder_settings`, `/api/reminders/*`, `SceneManager` constellation layer |
@@ -366,7 +366,9 @@ The trail must respect the existing date-filter behaviour: when `filterByDate` i
 
 ### 8.2 Streak pill (primary surface)
 
-A compact pill in the **top-right control cluster, immediately left of the existing `#date-filter` button**, matching `.auth-btn` geometry, `--radius-pill`, and the existing translucent panel treatment.
+A compact pill in the **top-left control cluster, immediately right of the existing `#date-filter` button**, matching `.auth-btn` geometry, `--radius-pill`, and the existing translucent panel treatment.
+
+> Corrected during implementation: an earlier draft of this section placed the pill top-right. `#date-filter` is top-**left**; top-right belongs to `#auth-panel` (the logout control). The intent — sit inside the existing meta-controls cluster — is unchanged; only the side was wrong.
 
 ```
 ┌──────────────┐
@@ -401,6 +403,7 @@ A popover reusing the `#date-filter-popover` pattern — same glass panel, same 
 - The **history grid** (Apple-Fitness-style, §3.6) is the emotional payload — it shows a *pattern*, which is far more informative than a counter and reads as neutral data rather than judgement.
 - Filled = entry, hollow = none, ringed = rest day, subtle outline = today when still open.
 - "Hide streaks" is a plain text link right here (P-6) — not buried in a settings screen the app doesn't have.
+- **Getting back in.** Hiding removes the pill, which removes the only way back — a gap in the original draft. The re-entry point is a "Show streaks" link inside the date filter popover, the adjacent meta-controls surface, shown only while streaks are hidden, and the confirmation message names it. Worth revisiting in Phase 4 if the app ever grows a real settings surface.
 
 ### 8.4 States and copy
 
@@ -440,14 +443,14 @@ On a milestone the reward beat (§8.5) is extended: the whole run's trail bright
 ### 8.7 Visibility, accessibility, motion
 
 - **Opt-out (P-6):** `visible: false` hides the pill, the card, the trail, the toasts and the reward beat. The data keeps accruing silently, so re-enabling restores the true streak — the same derived-not-stored property that solves the launch-day problem.
-- **Reduced motion:** under `prefers-reduced-motion: reduce`, the trail appears without drawing, the count changes without punch, the at-risk ring does not pulse. The existing codebase does not yet honour this media query anywhere; this feature should introduce the pattern.
+- **Reduced motion:** under `prefers-reduced-motion: reduce`, the trail appears without drawing, the count changes without punch, the at-risk ring does not pulse. `main.css` already carries a global `prefers-reduced-motion` block that collapses every animation and transition, so streak surfaces inherit this for free — verified in the browser rather than assumed.
 - **Colour independence:** every state is distinguishable by shape and text as well as colour (ring, outline, dash) — the at-risk state must not be conveyed by amber alone.
 - **Screen readers:** the pill carries a full label, e.g. `aria-label="Streak: 11 nights. Today is still open."`; the history grid is a table with date and logged/not-logged per cell, not a wall of unlabelled divs.
 - **Contrast:** gold `#f5c96a` on the dark panel meets AA for the text sizes used; the trail line is decorative and exempt but is never the sole carrier of information.
 
 ### 8.8 Placement rationale
 
-Deliberately *not* placed: in the composer (turns writing into a transaction), as a launch modal (P-2), or centred in the sky (competes with the content). The top-right cluster is the app's existing "meta controls" zone — the same place `#date-filter` lives — so it inherits an established mental model and is out of the reading path.
+Deliberately *not* placed: in the composer (turns writing into a transaction), as a launch modal (P-2), or centred in the sky (competes with the content). The top-left cluster is the app's existing "meta controls" zone — the same place `#date-filter` lives — so it inherits an established mental model and is out of the reading path.
 
 ---
 
@@ -533,7 +536,7 @@ Unit tests belong on the pure fold in `src/services/streaks/compute.js` — it t
 | Phase | Scope | Exit criteria |
 | --- | --- | --- |
 | **1 — Engine** ✅ | `src/services/streaks/compute.js` (pure fold), `entry_local_dates` RPC, `GET /api/streak`, `createdAt` clamp (§7.6). No UI. | Cases 1–18 green as unit tests; API verified against a seeded account with real history |
-| **2 — Quiet UI** | Streak pill + card + history grid, `streak_settings` table, opt-out, `visible` plumbed through. No trail, no celebrations. | Existing users see their true streak on first load (G-2); opt-out works end to end |
+| **2 — Quiet UI** ✅ | Streak pill + card + history grid, `streak_settings` table, opt-out, `visible` plumbed through. No trail, no celebrations. | Existing users see their true streak on first load (G-2); opt-out works end to end |
 | **3 — The sky** | Constellation trail in `SceneManager`, reward beat, milestones, reduced-motion support. Cache only if measured as needed. | No frame-rate regression at 365 days (case 23) |
 | **4 — Reminders + tuning** | N-1 copy change, analytics dashboards, rest-day window tuning. | Guardrail metrics (§10) stable for 4 weeks |
 
@@ -558,6 +561,28 @@ Two deviations from the spec as written, both deliberate:
 - **`visible` is hard-coded `true`.** The `streak_settings` table lands in Phase 2, but the field is already in the payload so the client contract does not change when it does.
 
 `getReminderSettingsRow` moved from `src/routes/reminders.routes.js` into `src/services/reminders/status.js` so both routers share one implementation, and `getLocalNow` is now exported from `src/services/reminders/time.js`. No behaviour changed in the reminder paths.
+
+### 13.2 Phase 2 — as built
+
+| Spec | Delivered in |
+| --- | --- |
+| `streak_settings` table + RLS (§7.1) | `supabase/schema.sql` |
+| Settings read/write | `src/services/streaks/settings.js` |
+| `PUT /api/streak/settings`, `visible` on `GET /api/streak` | `src/routes/streak.routes.js` |
+| Pill, card, history grid, legend (§8.2, §8.3) | `public/index.html`, `public/styles/main.css` |
+| States and copy (§8.4) | `public/js/features/streaks.js` |
+| Opt-out and re-entry (P-6) | `streaks.js` + "Show streaks" in the date filter popover |
+| `X-Client-Timezone` on every request (§7.2) | `public/js/services/api-client.js` |
+| Lifecycle wiring | `public/js/app.js` |
+
+Deviations and decisions:
+
+- **The history grid is a labelled list, not a `<table>`.** §8.7 called for a table, but a 4×7 block of days has no real row/column semantics to expose — the week grouping is a layout convenience. It renders as `role="list"` with a per-day `aria-label` ("Aug 9: entry written", "Aug 10: today, still open"), which is what a screen reader user actually needs, plus a visible legend.
+- **Cell size is capped at 26px** rather than filling the card width. At full width the grid dominated the popover, which works against P-2.
+- **Re-entry after opting out** is the "Show streaks" link described in §8.3 above.
+- **`#date-filter-popover[hidden]` was fixed in passing.** It carries an explicit `display: grid`, which beats the user-agent rule for `[hidden]`, so while "closed" it stayed in the layout at `opacity: 0` and kept intercepting clicks. The streak card would have had the same defect; both are now explicitly `display: none` when hidden.
+
+Verified in Chromium via a stub-API harness (62 assertions): every state renders, no state ever shows `0`, the broken pill uses a hollow glyph so the state does not depend on colour, Escape closes the card and returns focus, the two popovers are mutually exclusive, the opt-out round trip restores the real value rather than resetting it, touch targets clear 44px, and the mobile card fits a 390px viewport with no horizontal overflow.
 
 ---
 

@@ -9,6 +9,25 @@ export function formatDate(iso) {
   });
 }
 
+// Local calendar dates (YYYY-MM-DD) must not go through `new Date(str)`, which parses them
+// as UTC midnight and can render as the previous day west of Greenwich.
+function parseLocalDate(dateStr) {
+  const [year, month, day] = String(dateStr || "").split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+export function formatDayLabel(dateStr) {
+  return parseLocalDate(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+export function formatWeekday(dateStr) {
+  return parseLocalDate(dateStr).toLocaleDateString(undefined, { weekday: "long" });
+}
+
+export function formatNights(count) {
+  return `${count} ${count === 1 ? "night" : "nights"}`;
+}
+
 export function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")

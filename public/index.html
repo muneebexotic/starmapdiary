@@ -30,7 +30,32 @@
         <input id="date-filter-input" type="date" aria-label="Select date to filter stars" />
         <button id="date-filter-clear" class="auth-btn" type="button">Clear</button>
       </div>
+      <button id="streak-show-btn" class="streak-link" type="button" hidden>Show streaks</button>
     </div>
+  </div>
+
+  <div id="streak" hidden>
+    <button id="streak-btn" class="auth-btn" type="button" aria-expanded="false" aria-haspopup="dialog">
+      <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z" />
+      </svg>
+      <span id="streak-count">0</span>
+    </button>
+
+    <div id="streak-popover" role="dialog" aria-labelledby="streak-headline" hidden>
+      <p id="streak-headline"></p>
+      <p id="streak-longest"></p>
+      <div id="streak-grid" role="list" aria-label="Recent journal days"></div>
+      <p id="streak-grid-legend" aria-hidden="true">
+        <span><i class="is-logged"></i>Entry</span>
+        <span><i></i>None</span>
+        <span><i class="is-rested"></i>Rest day</span>
+      </p>
+      <p id="streak-next"></p>
+      <button id="streak-hide-btn" class="streak-link" type="button">Hide streaks</button>
+    </div>
+
+    <p id="streak-live" class="sr-only" aria-live="polite"></p>
   </div>
 
   <div id="auth-panel">

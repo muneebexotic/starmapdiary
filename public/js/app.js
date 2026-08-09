@@ -2,6 +2,7 @@ import { API_BASE, AUTH_TOKEN_KEY, ENTRY_MAX_LENGTH } from "./config/constants.j
 import { SENTIMENT_CONFIG } from "./config/sentiment.js";
 import { classifySentiment } from "./features/sentiment.js";
 import { ReminderManager } from "./features/reminders.js";
+import { StreakManager } from "./features/streaks.js";
 import { ApiClient } from "./services/api-client.js";
 import { formatDate } from "./utils/formatters.js";
 import { SceneManager } from "./three/scene-manager.js";
@@ -35,7 +36,18 @@ const elements = {
   dateFilterBtn: document.getElementById("date-filter-btn"),
   dateFilterPopover: document.getElementById("date-filter-popover"),
   dateFilterInput: document.getElementById("date-filter-input"),
-  dateFilterClear: document.getElementById("date-filter-clear")
+  dateFilterClear: document.getElementById("date-filter-clear"),
+  streak: document.getElementById("streak"),
+  streakBtn: document.getElementById("streak-btn"),
+  streakCount: document.getElementById("streak-count"),
+  streakPopover: document.getElementById("streak-popover"),
+  streakHeadline: document.getElementById("streak-headline"),
+  streakLongest: document.getElementById("streak-longest"),
+  streakGrid: document.getElementById("streak-grid"),
+  streakNext: document.getElementById("streak-next"),
+  streakHideBtn: document.getElementById("streak-hide-btn"),
+  streakShowBtn: document.getElementById("streak-show-btn"),
+  streakLive: document.getElementById("streak-live")
 };
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
@@ -59,6 +71,14 @@ const reminders = new ReminderManager({
   api,
   elements,
   setStatus
+});
+
+const streaks = new StreakManager({
+  api,
+  elements,
+  setStatus,
+  // The streak card and the date filter sit side by side, so only one may be open.
+  onOpen: () => closeDateFilterPopover()
 });
 
 wireEvents();
@@ -133,10 +153,12 @@ async function bootstrap() {
     setSignedInState(true);
     await loadEntriesFromServer();
     await reminders.start();
+    await streaks.start();
   } catch (_error) {
     api.clearToken();
     state.activeUser = null;
     reminders.stop();
+    streaks.stop();
     setStatus("Session expired. Please log in.");
   }
 }
@@ -163,6 +185,7 @@ async function handleSignup() {
     setSignedInState(true);
     await loadEntriesFromServer();
     await reminders.start();
+    await streaks.start();
     setStatus("Signed up and logged in.");
   } catch (error) {
     setStatus(error.message);
@@ -186,6 +209,7 @@ async function handleLogin() {
     setSignedInState(true);
     await loadEntriesFromServer();
     await reminders.start();
+    await streaks.start();
     setStatus("Logged in.");
   } catch (error) {
     setStatus(error.message);
@@ -197,6 +221,7 @@ function handleLogout() {
   state.activeUser = null;
   scene.clearEntries();
   reminders.stop();
+  streaks.stop();
   resetDateFilter();
   setSignedInState(false);
   setStatus("Logged out.");
@@ -245,6 +270,7 @@ async function handleSubmit() {
     const response = await api.post("/entries", draftEntry);
     scene.addEntry(response.entry);
     await reminders.onEntrySaved();
+    await streaks.onEntrySaved();
     setStatus("Entry saved.");
     elements.input.value = "";
     syncEntryInputHeight();
@@ -259,6 +285,7 @@ function openModalForEntry(entry) {
   elements.entryFull.textContent = entry.text;
   elements.modal.classList.add("open");
   closeDateFilterPopover();
+  streaks.closeCard();
   scene.clearHover();
 }
 
@@ -305,6 +332,7 @@ function handleDateFilterToggle() {
 }
 
 function openDateFilterPopover() {
+  streaks.closeCard();
   state.dateFilterOpen = true;
   elements.dateFilterPopover.hidden = false;
   elements.dateFilterBtn.setAttribute("aria-expanded", "true");

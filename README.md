@@ -67,6 +67,10 @@ The streak is derived from `diary_entries` on every read rather than stored as a
 existing history counts immediately and no backfill is needed. Design rationale, UX research
 and the remaining phases are in `docs/streaks-frd.md`.
 
+`PUT /api/streak/settings` with `{ "visible": false }` hides every streak surface. The streak
+keeps accruing while hidden, so turning it back on shows the real value. Users re-enable it
+from the "Show streaks" link in the date filter panel.
+
 Set `STREAK_GRACE_ENABLED=false` to disable automatic rest days and use strict
 consecutive-day counting.
 
