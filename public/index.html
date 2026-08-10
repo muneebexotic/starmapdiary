@@ -3,123 +3,127 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#03050f" />
+  <meta name="theme-color" content="#02030a" />
   <title>Star Map Diary</title>
+  <link rel="preload" href="/vendor/fonts/newsreader-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/vendor/fonts/karla-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles/main.css" />
   <link rel="manifest" href="/manifest.webmanifest" />
 </head>
 <body>
   <div id="app"></div>
 
-  <div id="hint">Drag to orbit | Scroll to zoom | Hover and click stars to read entries</div>
+  <div id="tooltip" aria-hidden="true"></div>
 
-  <div id="date-filter" hidden>
-    <button id="date-filter-btn" class="auth-btn" type="button" aria-label="Filter stars by date" aria-expanded="false">
-      <svg class="date-filter-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <circle cx="12" cy="12" r="8"/>
-        <line x1="12" y1="2" x2="12" y2="6"/>
-        <line x1="12" y1="18" x2="12" y2="22"/>
-        <line x1="2" y1="12" x2="6" y2="12"/>
-        <line x1="18" y1="12" x2="22" y2="12"/>
-        <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
-      </svg>
-    </button>
-    <div id="date-filter-popover" hidden>
-      <p id="date-filter-label">✦ Filter stars by date</p>
-      <div id="date-filter-controls">
-        <input id="date-filter-input" type="date" aria-label="Select date to filter stars" />
-        <button id="date-filter-clear" class="auth-btn" type="button">Clear</button>
+  <!-- Hide-interface control. The only thing besides the deck that exists at rest. -->
+  <button id="focus-toggle-btn" type="button" aria-pressed="false" aria-label="Hide the interface and just look">
+    <span class="dim-dot" aria-hidden="true"></span>
+  </button>
+
+  <!-- The deck: one fixed surface along the bottom edge. The scrim ignores pointer events so
+       the sky stays draggable either side of the column. -->
+  <div id="deck">
+    <div id="deck-column">
+      <p id="milestone-line" hidden></p>
+      <p id="message-line" role="status" aria-live="polite"></p>
+
+      <div id="reminder-banner">
+        <p id="reminder-text"></p>
+        <button id="enable-push-btn" type="button">Turn on nightly reminder</button>
+        <p id="ios-install-hint">
+          On iPhone and iPad, add Star Map Diary to your Home Screen first: tap Share, then Add to Home Screen.
+        </p>
       </div>
-      <button id="streak-show-btn" class="streak-link" type="button" hidden>Show streaks</button>
+
+      <button id="meta-row" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="log">
+        <span id="meta-left">
+          <span id="meta-date"></span>
+          <span id="meta-streak-dot" hidden></span>
+          <span id="meta-streak"></span>
+        </span>
+        <span id="meta-right">
+          <span id="meta-log-label">Log</span>
+          <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 14l6-6 6 6" />
+          </svg>
+        </span>
+      </button>
+
+      <div id="entry-compose">
+        <textarea id="entry-input" maxlength="4000" rows="1" placeholder="Tonight is still open."></textarea>
+        <button id="submit-btn" type="button" aria-label="Place tonight's star">
+          <svg class="star-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div id="streak" hidden>
-    <button id="streak-btn" class="auth-btn" type="button" aria-expanded="false" aria-haspopup="dialog">
-      <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z" />
-      </svg>
-      <span id="streak-count">0</span>
-    </button>
-
-    <div id="streak-popover" role="dialog" aria-labelledby="streak-headline" hidden>
-      <p id="streak-headline"></p>
-      <p id="streak-longest"></p>
-      <div id="streak-grid" role="list" aria-label="Recent journal days"></div>
-      <p id="streak-grid-legend" aria-hidden="true">
-        <span><i class="is-logged"></i>Entry</span>
-        <span><i></i>None</span>
-        <span><i class="is-rested"></i>Rest day</span>
+  <!-- Signed out: wordmark, one sentence, two ruled fields. -->
+  <div id="auth-panel" hidden>
+    <div id="auth-column">
+      <h1 id="wordmark">Star Map Diary</h1>
+      <p id="auth-blurb">
+        A private diary. Each night you write becomes a star, and nights in a row are drawn into
+        a constellation.
       </p>
+      <div id="auth-fields">
+        <label class="auth-field">
+          <span class="auth-label">Email</span>
+          <input id="email-input" type="email" autocomplete="email" />
+        </label>
+        <label class="auth-field">
+          <span class="auth-label">Password</span>
+          <input id="password-input" type="password" autocomplete="current-password" />
+        </label>
+      </div>
+      <button id="auth-primary-btn" type="button">Begin</button>
+      <div id="auth-foot">
+        <p id="auth-status">Not signed in.</p>
+        <button id="auth-mode-btn" type="button">I already have an account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The log: one surface for everything that is not writing. -->
+  <div id="log-scrim" hidden></div>
+  <div id="log" role="dialog" aria-modal="true" aria-label="The log" hidden>
+    <div id="log-handle" aria-hidden="true"></div>
+
+    <div id="log-head">
+      <h2 id="log-title">Your nights</h2>
+      <span id="log-range"></span>
+    </div>
+
+    <div id="log-weekdays" aria-hidden="true">
+      <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+    </div>
+    <div id="log-calendar"></div>
+    <p id="log-caption"></p>
+
+    <div id="streak-block">
+      <p id="streak-headline"></p>
+      <p id="streak-sub"></p>
       <p id="streak-next"></p>
-      <button id="streak-hide-btn" class="streak-link" type="button">Hide streaks</button>
+    </div>
+
+    <div class="log-row">
+      <span class="log-row-text">
+        <span class="log-row-title">Streaks</span>
+        <span id="streak-switch-hint" class="log-row-hint"></span>
+      </span>
+      <button id="streak-switch" type="button" role="switch" aria-checked="true" aria-label="Streaks">
+        <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
+      </button>
+    </div>
+
+    <div class="log-row" id="log-account-row">
+      <span id="log-account" class="log-row-hint"></span>
+      <button id="logout-btn" type="button">Sign out</button>
     </div>
 
     <p id="streak-live" class="sr-only" aria-live="polite"></p>
-  </div>
-
-  <div id="streak-toast" role="status" aria-live="polite" hidden>
-    <svg class="streak-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z" />
-    </svg>
-    <p id="streak-toast-text"></p>
-  </div>
-
-  <div id="auth-panel">
-    <div id="auth-row">
-      <input id="email-input" class="auth-input" type="email" autocomplete="email" placeholder="Email" />
-      <input id="password-input" class="auth-input" type="password" autocomplete="current-password" placeholder="Password" />
-    </div>
-    <div id="auth-actions">
-      <button id="signup-btn" class="auth-btn" type="button">Sign Up</button>
-      <button id="login-btn" class="auth-btn" type="button">Log In</button>
-      <button id="logout-btn" class="auth-btn" type="button">Log Out</button>
-    </div>
-    <p id="auth-status">Not signed in.</p>
-  </div>
-
-  <div id="tooltip" aria-hidden="true"></div>
-
-  <div id="ui-panel">
-    <div id="reminder-banner" aria-live="polite">
-      <div id="reminder-head">
-        <p id="reminder-text"></p>
-      </div>
-      <div id="reminder-actions">
-        <button id="enable-push-btn" class="auth-btn" type="button">Enable Notifications</button>
-      </div>
-      <p id="ios-install-hint">
-        iPhone/iPad: tap Share, then Add to Home Screen to allow web push reminders.
-      </p>
-    </div>
-
-    <div id="entry-compose">
-      <textarea id="entry-input" maxlength="4000" placeholder="Write a journal entry and create a star..."></textarea>
-      <button id="submit-btn" type="button" aria-label="Add Star">
-        <svg class="submit-icon chevron-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-        <svg class="submit-icon lock-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M8 10V8a4 4 0 118 0v2" />
-          <rect x="6.5" y="10" width="11" height="9.5" rx="2.2" />
-          <path d="M12 13.3v3.2" />
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <button id="focus-toggle-btn" class="auth-btn" type="button" aria-pressed="false" aria-label="Hide writing controls for full galaxy view">
-    <svg class="focus-icon focus-hide-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M5 9l7 7 7-7" />
-    </svg>
-    <svg class="focus-icon focus-show-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M5 15l7-7 7 7" />
-    </svg>
-  </button>
-
-  <div id="focus-tip" role="status" aria-live="polite" hidden>
-    <p id="focus-tip-text">Tip: Use Focus View to hide the writing controls and enjoy a full galaxy canvas.</p>
-    <button id="focus-tip-close" class="auth-btn" type="button">Got it</button>
   </div>
 
   <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -148,7 +152,7 @@
     }
   </script>
   <script type="module" src="/js/app.js"></script>
-  
+
   <!-- Vercel Speed Insights -->
   <script>
     window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };

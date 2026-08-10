@@ -1,80 +1,83 @@
-import { formatDayLabel, formatNights, formatWeekday } from "../utils/formatters.js";
+import { formatNights, formatWeekday } from "../utils/formatters.js";
 
-const GRID_DAYS = 28;
+const CALENDAR_DAYS = 28;
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const COUNT_PUNCH_DELAY_MS = 260;
-const COUNT_PUNCH_MS = 220;
-const MILESTONE_TOAST_MS = 5000;
+const MILESTONE_HOLD_MS = 6000;
 
 const NO_TRAIL = { setData() {}, playDraw() {}, playSweep() {} };
 
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Copy is invitational throughout: no "don't", "lose", "missed", "broke", and no exclamation
+// marks. See design/incoming/README.md and docs/streaks-frd.md section 8.4.
+function headlineFor(status) {
+  if (status.state === "broken") return `Longest: ${formatNights(status.longest)}`;
+  return formatNights(status.current);
 }
 
-// Copy is deliberately invitational. No "don't", "lose", "missed", "broke", or exclamation
-// marks — see docs/streaks-frd.md section 8.4.
-function buildHeadline(status) {
-  const nights = formatNights(status.current);
-
+function sublineFor(status) {
   switch (status.state) {
     case "active_today":
-      return `${nights} · tonight's star is placed`;
+      return "Tonight's star is placed.";
     case "active_pending":
-      return `${nights} · today is still open`;
+      return "Today is still open.";
     case "at_risk":
-      return `${nights} · there's still time tonight`;
+      return "There's still time tonight.";
     case "grace_used":
       return status.graceUsedOn
-        ? `You took a rest day on ${formatWeekday(status.graceUsedOn)} — your streak carried over`
-        : `${nights} · a rest day carried your streak over`;
+        ? `You took a rest night on ${formatWeekday(status.graceUsedOn)}. Your streak carried over.`
+        : "A rest night carried your streak over.";
     case "broken":
-      return `Longest: ${formatNights(status.longest)}`;
+      return "Tonight starts the next one.";
     default:
-      return nights;
+      return "";
   }
 }
 
-function buildSubline(status) {
-  if (status.state === "broken") return "Tonight starts the next one.";
-  if (status.longest > status.current) return `Longest: ${formatNights(status.longest)}`;
-  if (status.current > 1) return "This is your longest run so far.";
-  return "";
+function nextLineFor(status) {
+  const next = status.nextMilestone;
+  if (!next || status.state === "broken") return "";
+  return `${next.name} at ${formatNights(next.days)}, ${formatNights(next.remaining)} away.`;
 }
 
-function buildDayLabel(day, isToday) {
-  const date = formatDayLabel(day.date);
+function parseLocalDate(dateStr) {
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+// Monday-first index, so the calendar's weekday letters line up with its cells.
+function mondayIndex(dateStr) {
+  return (parseLocalDate(dateStr).getDay() + 6) % 7;
+}
+
+function monthLabel(dateStr) {
+  return parseLocalDate(dateStr).toLocaleDateString(undefined, { month: "short" });
+}
+
+function nightLabel(day, isToday) {
+  const date = parseLocalDate(day.date).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
   if (day.logged) return `${date}: entry written`;
-  if (day.rested) return `${date}: rest day`;
+  if (day.rested) return `${date}: rest night`;
   return isToday ? `${date}: today, still open` : `${date}: no entry`;
 }
 
-function buildPillLabel(status) {
-  const headline = buildHeadline(status);
-  return status.state === "broken"
-    ? `Streaks. ${headline}. Open streak details.`
-    : `Streak: ${headline}. Open streak details.`;
-}
-
 export class StreakManager {
-  constructor({ api, elements, setStatus, onOpen, trail = NO_TRAIL }) {
+  constructor({ api, elements, setMessage, trail = NO_TRAIL, onSelectNight }) {
     this.api = api;
     this.elements = elements;
-    this.setStatus = setStatus;
-    this.onOpen = onOpen;
+    this.setMessage = setMessage;
     this.trail = trail;
+    this.onSelectNight = onSelectNight;
+
     this.status = null;
-    this.cardOpen = false;
+    this.filterDay = null;
     this.timer = null;
-    this.punchTimer = null;
-    this.toastTimer = null;
+    this.milestoneTimer = null;
     this.lastAnnouncedCount = null;
 
-    this.handlePillClick = this.handlePillClick.bind(this);
-    this.handleHideClick = this.handleHideClick.bind(this);
-    this.handleShowClick = this.handleShowClick.bind(this);
-    this.handleDocumentClick = this.handleDocumentClick.bind(this);
-    this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleSwitchClick = this.handleSwitchClick.bind(this);
+    this.handleCalendarClick = this.handleCalendarClick.bind(this);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
   }
 
@@ -84,12 +87,12 @@ export class StreakManager {
 
     this.attachEvents();
     await this.refresh();
-
     this.timer = window.setInterval(() => this.refresh(), REFRESH_INTERVAL_MS);
   }
 
   stop() {
     this.status = null;
+    this.filterDay = null;
     this.lastAnnouncedCount = null;
     this.detachEvents();
 
@@ -98,21 +101,35 @@ export class StreakManager {
       this.timer = null;
     }
 
-    window.clearTimeout(this.punchTimer);
-    this.hideMilestone({ immediate: true });
+    window.clearTimeout(this.milestoneTimer);
+    this.hideMilestone();
     this.trail.setData(null);
-    this.closeCard({ immediate: true });
-    this.elements.streak.hidden = true;
-    this.elements.streakShowBtn.hidden = true;
+    this.clearMeta();
+  }
+
+  attachEvents() {
+    this.elements.streakSwitch.addEventListener("click", this.handleSwitchClick);
+    this.elements.logCalendar.addEventListener("click", this.handleCalendarClick);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+  }
+
+  detachEvents() {
+    this.elements.streakSwitch.removeEventListener("click", this.handleSwitchClick);
+    this.elements.logCalendar.removeEventListener("click", this.handleCalendarClick);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+  }
+
+  handleVisibilityChange() {
+    if (document.visibilityState === "visible") this.refresh();
   }
 
   /**
-   * The reward beat. `streak` is the payload POST /api/entries returns alongside the entry,
-   * so the trail and the count update without a second round trip; a refetch covers the case
-   * where the server could not build it.
+   * The reward beat. `streak` is what POST /api/entries returns alongside the entry, so the
+   * trail and the counts update without a second round trip; a refetch covers the case where
+   * the server could not build it.
    */
   async onEntrySaved(streak = null) {
-    await this.refresh({ announce: true, punch: true, status: streak });
+    await this.refresh({ announce: true, status: streak });
 
     if (!this.status || !this.status.visible) return;
 
@@ -124,235 +141,172 @@ export class StreakManager {
     }
   }
 
-  attachEvents() {
-    this.elements.streakBtn.addEventListener("click", this.handlePillClick);
-    this.elements.streakHideBtn.addEventListener("click", this.handleHideClick);
-    this.elements.streakShowBtn.addEventListener("click", this.handleShowClick);
-    document.addEventListener("click", this.handleDocumentClick);
-    document.addEventListener("keydown", this.handleKeydown);
-    document.addEventListener("visibilitychange", this.handleVisibilityChange);
-  }
-
-  detachEvents() {
-    this.elements.streakBtn.removeEventListener("click", this.handlePillClick);
-    this.elements.streakHideBtn.removeEventListener("click", this.handleHideClick);
-    this.elements.streakShowBtn.removeEventListener("click", this.handleShowClick);
-    document.removeEventListener("click", this.handleDocumentClick);
-    document.removeEventListener("keydown", this.handleKeydown);
-    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
-  }
-
-  async refresh({ announce = false, punch = false, status = null } = {}) {
+  async refresh({ announce = false, status = null } = {}) {
     if (!this.api.token) return;
 
     try {
       this.status = status || (await this.api.get("/streak"));
-      this.render({ announce, punch });
+      this.render({ announce });
       this.trail.setData(this.status);
     } catch (_error) {
       // A streak failure is never worth interrupting the diary for.
-      this.elements.streak.hidden = true;
+      this.clearMeta();
     }
   }
 
-  handleVisibilityChange() {
-    if (document.visibilityState === "visible") this.refresh();
+  clearMeta() {
+    this.elements.metaStreak.textContent = "";
+    this.elements.metaStreakDot.hidden = true;
   }
 
-  render({ announce = false, punch = false } = {}) {
+  render({ announce = false } = {}) {
     const status = this.status;
+    if (!status) return;
 
-    // Rule S-8: a user with no history is never shown a zero.
-    if (!status || !status.visible || status.state === "empty") {
-      this.closeCard({ immediate: true });
-      this.elements.streak.hidden = true;
-      this.elements.streakShowBtn.hidden = !status || status.visible !== false;
-      return;
-    }
+    this.renderMeta(status);
+    this.renderLog(status);
 
-    this.elements.streak.hidden = false;
-    this.elements.streakShowBtn.hidden = true;
-
-    // Rule P-3: between a break and the next entry the pill carries the longest streak,
-    // never a bare zero.
-    const displayCount = status.state === "broken" ? status.longest : status.current;
-    this.elements.streakCount.textContent = String(displayCount);
-    this.elements.streakBtn.dataset.state = status.state;
-    this.elements.streakBtn.setAttribute("aria-label", buildPillLabel(status));
-
-    this.renderCard(status);
-
-    if (punch) this.punchCount();
-
-    if (announce && status.current !== this.lastAnnouncedCount) {
+    if (announce && status.visible && status.current !== this.lastAnnouncedCount) {
       this.elements.streakLive.textContent = `Streak: ${formatNights(status.current)}.`;
       this.lastAnnouncedCount = status.current;
     }
   }
 
-  // Step 3 of the reward beat, delayed so it lands just after the trail starts drawing
-  // rather than competing with it.
-  punchCount() {
-    if (prefersReducedMotion()) return;
+  // Rules S-8 and P-3: an empty history shows nothing at all, and a break leads with the
+  // longest run rather than a bare zero.
+  renderMeta(status) {
+    const hide = !status.visible || status.state === "empty";
+    this.elements.metaStreakDot.hidden = hide || status.state === "broken";
 
-    window.clearTimeout(this.punchTimer);
-    this.punchTimer = window.setTimeout(() => {
-      const pill = this.elements.streakBtn;
-      pill.classList.remove("streak-punch");
-      void pill.offsetWidth;
-      pill.classList.add("streak-punch");
-      window.setTimeout(() => pill.classList.remove("streak-punch"), COUNT_PUNCH_MS);
-    }, COUNT_PUNCH_DELAY_MS);
-  }
-
-  showMilestone(milestone) {
-    const toast = this.elements.streakToast;
-    if (!toast) return;
-
-    this.elements.streakToastText.textContent = `${milestone.name} · ${formatNights(milestone.days)}`;
-    toast.hidden = false;
-
-    window.requestAnimationFrame(() => toast.classList.add("open"));
-
-    window.clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => this.hideMilestone(), MILESTONE_TOAST_MS);
-  }
-
-  hideMilestone({ immediate = false } = {}) {
-    const toast = this.elements.streakToast;
-    if (!toast || toast.hidden) return;
-
-    window.clearTimeout(this.toastTimer);
-    toast.classList.remove("open");
-
-    if (immediate) {
-      toast.hidden = true;
+    if (hide) {
+      this.elements.metaStreak.textContent = "";
       return;
     }
 
-    window.setTimeout(() => {
-      if (!toast.classList.contains("open")) toast.hidden = true;
-    }, 240);
+    this.elements.metaStreak.textContent =
+      status.state === "broken"
+        ? `Longest ${formatNights(status.longest)}`
+        : formatNights(status.current);
   }
 
-  renderCard(status) {
-    this.elements.streakHeadline.textContent = buildHeadline(status);
+  renderLog(status) {
+    const { elements } = this;
 
-    const subline = buildSubline(status);
-    this.elements.streakLongest.textContent = subline;
-    this.elements.streakLongest.hidden = !subline;
+    elements.log.classList.toggle("streaks-off", !status.visible);
+    elements.streakSwitch.setAttribute("aria-checked", String(status.visible));
+    elements.streakSwitchHint.textContent = status.visible
+      ? "Counts, trail and milestones."
+      : "Hidden. They keep counting quietly.";
 
-    const next = status.nextMilestone;
-    const showNext = Boolean(next) && status.state !== "broken";
-    this.elements.streakNext.textContent = showNext
-      ? `Next: ${next.name}, ${formatNights(next.remaining)} away`
-      : "";
-    this.elements.streakNext.hidden = !showNext;
+    const showBlock = status.visible && status.state !== "empty";
+    elements.streakBlock.hidden = !showBlock;
 
-    this.renderGrid(status);
+    if (showBlock) {
+      elements.streakHeadline.textContent = headlineFor(status);
+      elements.streakSub.textContent = sublineFor(status);
+      elements.streakNext.textContent = nextLineFor(status);
+    }
+
+    this.renderCalendar(status);
   }
 
-  renderGrid(status) {
-    const grid = this.elements.streakGrid;
-    const days = (status.recentDays || []).slice(-GRID_DAYS);
+  renderCalendar(status) {
+    const grid = this.elements.logCalendar;
+    const days = (status.recentDays || []).slice(-CALENDAR_DAYS);
 
     grid.textContent = "";
+    if (days.length === 0) return;
+
+    const first = days[0].date;
+    const last = days[days.length - 1].date;
+    this.elements.logRange.textContent =
+      monthLabel(first) === monthLabel(last)
+        ? monthLabel(last)
+        : `${monthLabel(first)} – ${monthLabel(last)}`;
+
+    // Blank leading cells so week one starts on a Monday.
+    for (let pad = mondayIndex(first); pad > 0; pad -= 1) {
+      const filler = document.createElement("span");
+      filler.className = "night";
+      filler.setAttribute("aria-hidden", "true");
+      grid.appendChild(filler);
+    }
 
     for (let i = 0; i < days.length; i += 1) {
       const day = days[i];
       const isToday = day.date === status.todayLocalDate;
 
-      const cell = document.createElement("span");
-      cell.className = "streak-day";
-      cell.setAttribute("role", "listitem");
-      cell.setAttribute("aria-label", buildDayLabel(day, isToday));
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "night";
+      cell.dataset.date = day.date;
+      cell.setAttribute("aria-label", nightLabel(day, isToday));
 
-      if (day.logged) cell.classList.add("is-logged");
-      if (day.rested) cell.classList.add("is-rested");
-      if (isToday) cell.classList.add("is-today");
+      if (day.logged) cell.classList.add("written");
+      if (day.rested) cell.classList.add("rested");
+      if (isToday) cell.classList.add("today");
+      if (day.date === this.filterDay) cell.classList.add("filtered");
+      if (!day.logged) cell.disabled = true;
 
+      const dot = document.createElement("span");
+      dot.className = "night-dot";
+      cell.appendChild(dot);
       grid.appendChild(cell);
     }
+
+    this.elements.logCaption.textContent = this.filterDay
+      ? "Showing one night. Tap it again for the whole sky."
+      : "Tap a night to show only its stars.";
   }
 
-  handlePillClick(event) {
-    event.stopPropagation();
-    if (this.cardOpen) {
-      this.closeCard();
-      return;
-    }
-    this.openCard();
+  // The date filter and the streak grid were always the same list — "your recent nights" — so
+  // tapping a night here is what filters the sky.
+  handleCalendarClick(event) {
+    const cell = event.target.closest(".night[data-date]");
+    if (!cell || cell.disabled) return;
+
+    const date = cell.dataset.date;
+    this.filterDay = this.filterDay === date ? null : date;
+
+    if (this.onSelectNight) this.onSelectNight(this.filterDay);
+    if (this.status) this.renderCalendar(this.status);
   }
 
-  openCard() {
-    if (this.cardOpen) return;
-    if (this.onOpen) this.onOpen();
-
-    this.cardOpen = true;
-    this.elements.streakPopover.hidden = false;
-    this.elements.streakBtn.setAttribute("aria-expanded", "true");
-
-    window.requestAnimationFrame(() => {
-      this.elements.streakPopover.classList.add("open");
-    });
+  clearFilter() {
+    if (!this.filterDay) return;
+    this.filterDay = null;
+    if (this.status) this.renderCalendar(this.status);
   }
 
-  closeCard({ immediate = false } = {}) {
-    if (!this.cardOpen) return;
+  showMilestone(milestone) {
+    const line = this.elements.milestoneLine;
+    line.textContent = `${milestone.name} · ${formatNights(milestone.days)}`;
+    line.hidden = false;
 
-    this.cardOpen = false;
-    this.elements.streakPopover.classList.remove("open");
-    this.elements.streakBtn.setAttribute("aria-expanded", "false");
-
-    if (immediate) {
-      this.elements.streakPopover.hidden = true;
-      return;
-    }
-
-    window.setTimeout(() => {
-      if (!this.cardOpen) this.elements.streakPopover.hidden = true;
-    }, 250);
+    window.clearTimeout(this.milestoneTimer);
+    this.milestoneTimer = window.setTimeout(() => this.hideMilestone(), MILESTONE_HOLD_MS);
   }
 
-  handleDocumentClick(event) {
-    if (!this.cardOpen) return;
-    if (this.elements.streak.contains(event.target)) return;
-    this.closeCard();
+  hideMilestone() {
+    this.elements.milestoneLine.hidden = true;
+    this.elements.milestoneLine.textContent = "";
   }
 
-  handleKeydown(event) {
-    if (event.key !== "Escape" || !this.cardOpen) return;
-    this.closeCard();
-    this.elements.streakBtn.focus({ preventScroll: true });
-  }
+  async handleSwitchClick() {
+    if (!this.status) return;
+    const visible = !this.status.visible;
 
-  async setVisibility(visible) {
     try {
       await this.api.put("/streak/settings", { visible });
-      if (this.status) this.status.visible = visible;
-      return true;
     } catch (error) {
-      this.setStatus(error.message || "Could not update streak settings.");
-      return false;
+      this.setMessage(error.message || "Could not update streak settings.");
+      return;
     }
-  }
 
-  async handleHideClick() {
-    this.closeCard({ immediate: true });
-
-    if (!(await this.setVisibility(false))) return;
-
-    this.hideMilestone({ immediate: true });
+    // The streak kept counting while hidden, so switching back on shows the real number.
+    this.status.visible = visible;
     this.render();
     this.trail.setData(this.status);
-    this.setStatus("Streaks hidden. Turn them back on from the date filter panel.");
-  }
-
-  async handleShowClick() {
-    if (!(await this.setVisibility(true))) return;
-
-    // The streak kept accruing while hidden, so re-enabling shows the real number.
-    await this.refresh();
-    this.setStatus("Streaks shown.");
+    if (!visible) this.hideMilestone();
   }
 }
