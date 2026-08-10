@@ -4,7 +4,6 @@ import { classifySentiment } from "./features/sentiment.js";
 import { ReminderManager } from "./features/reminders.js";
 import { StreakManager } from "./features/streaks.js";
 import { ApiClient } from "./services/api-client.js";
-import { formatDate } from "./utils/formatters.js";
 import { SceneManager } from "./three/scene-manager.js";
 
 const elements = {
@@ -44,10 +43,16 @@ const elements = {
   streakSwitch: document.getElementById("streak-switch"),
   streakSwitchHint: document.getElementById("streak-switch-hint"),
   streakLive: document.getElementById("streak-live"),
-  modal: document.getElementById("modal"),
-  closeModalBtn: document.getElementById("close-modal"),
-  entryMeta: document.getElementById("entry-meta"),
-  entryFull: document.getElementById("entry-full")
+  reader: document.getElementById("reader"),
+  readerStar: document.getElementById("reader-star"),
+  readerLeader: document.getElementById("reader-leader"),
+  readerColumn: document.getElementById("reader-column"),
+  readerMood: document.getElementById("reader-mood"),
+  readerWhen: document.getElementById("reader-when"),
+  readerText: document.getElementById("reader-text"),
+  readerClose: document.getElementById("reader-close"),
+  readerPrev: document.getElementById("reader-prev"),
+  readerNext: document.getElementById("reader-next")
 };
 
 const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
@@ -58,6 +63,7 @@ const MESSAGE_HOLD_MS = 5200;
 
 const state = {
   activeUser: null,
+  reading: null,
   dimmed: false,
   logOpen: false,
   authMode: "signup"
@@ -69,7 +75,7 @@ let firstRunTimers = [];
 const scene = new SceneManager({
   container: elements.app,
   tooltip: elements.tooltip,
-  onStarSelected: openModalForEntry
+  onStarSelected: openReader
 });
 
 const reminders = new ReminderManager({
@@ -117,14 +123,17 @@ function wireEvents() {
     if (event.key === "Enter") handleAuthSubmit();
   });
 
-  elements.closeModalBtn.addEventListener("click", closeModal);
-  elements.modal.addEventListener("click", (event) => {
-    if (event.target === elements.modal) closeModal();
+  elements.readerClose.addEventListener("click", closeReader);
+  elements.readerPrev.addEventListener("click", () => stepReader(-1));
+  elements.readerNext.addEventListener("click", () => stepReader(1));
+  // Tapping the sky closes the reader.
+  elements.reader.addEventListener("click", (event) => {
+    if (event.target === elements.reader) closeReader();
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    if (elements.modal.classList.contains("open")) return closeModal();
+    if (state.reading) return closeReader();
     if (state.logOpen) return closeLog();
     if (state.dimmed) return applyDim(false);
   });
@@ -160,6 +169,7 @@ async function bootstrap() {
     await loadEntriesFromServer();
     await reminders.start();
     await streaks.start();
+    syncPlaceholder(Boolean(streaks.status?.todayLogged));
     startFirstRun();
   } catch (_error) {
     api.clearToken();
@@ -293,22 +303,105 @@ async function handleSubmit() {
 
     await reminders.onEntrySaved();
     await streaks.onEntrySaved(response.streak);
+    syncPlaceholder(true);
   } catch (error) {
     setMessage(error.message);
   }
 }
 
-function openModalForEntry(entry) {
-  const sentimentMeta = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
-  elements.entryMeta.textContent = `${formatDate(entry.createdAt)} · ${sentimentMeta.label}`;
-  elements.entryFull.textContent = entry.text;
-  elements.modal.classList.add("open");
+// ── Reading a night ──────────────────────────────────────────
+
+function openReader(entry) {
+  const mood = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
+  const when = new Date(entry.createdAt);
+
+  state.reading = entry;
   closeLog();
   scene.clearHover();
+  // The sky holds still while a night is being read.
+  scene.setDrift(false);
+
+  elements.readerMood.style.background = mood.color;
+  elements.readerMood.style.boxShadow = `0 0 12px ${mood.color}`;
+  elements.readerWhen.textContent = `${when.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  })} · ${when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} · ${mood.label}`;
+  elements.readerText.textContent = entry.text;
+
+  const nights = scene.getEntriesChronological();
+  const index = nights.findIndex((candidate) => candidate.id === entry.id);
+  elements.readerPrev.disabled = index <= 0;
+  elements.readerNext.disabled = index < 0 || index >= nights.length - 1;
+
+  elements.reader.hidden = false;
+  positionReader(entry, mood);
+  elements.readerColumn.focus?.({ preventScroll: true });
 }
 
-function closeModal() {
-  elements.modal.classList.remove("open");
+// Desktop pins the text beside the star with a hairline between them; phone anchors it to the
+// bottom edge. Either way the star you touched stays lit.
+function positionReader(entry, mood) {
+  const pos = scene.getEntryScreenPosition(entry.id);
+  const star = elements.readerStar;
+  const leader = elements.readerLeader;
+  const column = elements.readerColumn;
+
+  if (!pos || !pos.onScreen) {
+    star.classList.remove("visible");
+    leader.style.width = "0px";
+    column.style.left = "";
+    column.style.top = "";
+    return;
+  }
+
+  star.style.left = `${pos.x}px`;
+  star.style.top = `${pos.y}px`;
+  star.style.background =
+    `radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.5) 9%, ` +
+    `${mood.color}70 30%, transparent 68%)`;
+  star.classList.add("visible");
+
+  if (window.innerWidth < 900) {
+    leader.style.width = "0px";
+    column.style.left = "";
+    column.style.top = "";
+    return;
+  }
+
+  const width = 440;
+  const gap = 130;
+  const toRight = pos.x < window.innerWidth / 2;
+  const rawLeft = toRight ? pos.x + gap : pos.x - gap - width;
+  const left = Math.max(24, Math.min(rawLeft, window.innerWidth - width - 24));
+  const top = Math.max(24, Math.min(pos.y - 120, window.innerHeight - 280));
+
+  column.style.left = `${left}px`;
+  column.style.top = `${top}px`;
+
+  const from = toRight ? pos.x + 10 : left + width;
+  const to = toRight ? left : pos.x - 10;
+  leader.classList.toggle("to-left", !toRight);
+  leader.style.left = `${Math.min(from, to)}px`;
+  leader.style.top = `${pos.y}px`;
+  leader.style.width = `${Math.max(0, Math.abs(to - from))}px`;
+}
+
+function stepReader(direction) {
+  if (!state.reading) return;
+  const nights = scene.getEntriesChronological();
+  const index = nights.findIndex((candidate) => candidate.id === state.reading.id);
+  const next = nights[index + direction];
+  if (next) openReader(next);
+}
+
+function closeReader() {
+  if (!state.reading) return;
+  state.reading = null;
+  elements.reader.hidden = true;
+  elements.readerStar.classList.remove("visible");
+  scene.setDrift(true);
 }
 
 // ── The log ──────────────────────────────────────────────────
@@ -359,6 +452,11 @@ function syncSendState() {
   const ready = elements.input.value.trim().length > 0;
   elements.submitBtn.classList.toggle("ready", ready);
   elements.submitBtn.setAttribute("aria-disabled", String(!ready));
+}
+
+// The placeholder is the nudge: rule N-2 of the redesign, replacing the old banner copy.
+function syncPlaceholder(todayLogged) {
+  elements.input.placeholder = todayLogged ? "Another line?" : "Tonight is still open.";
 }
 
 function renderMetaDate() {

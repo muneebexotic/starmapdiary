@@ -126,18 +126,25 @@
     <p id="streak-live" class="sr-only" aria-live="polite"></p>
   </div>
 
-  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div id="modal-card">
-      <div id="modal-header">
-        <h2 id="modal-title">Journal Entry</h2>
-        <button id="close-modal" type="button" aria-label="Close entry">
-          <svg class="close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
+  <!-- Reading a night: no card, no title bar, no close X in the corner. The star you touched
+       stays lit and the text is pinned beside it like an annotated star chart. -->
+  <div id="reader" hidden>
+    <div id="reader-star" aria-hidden="true"></div>
+    <div id="reader-leader" aria-hidden="true"></div>
+
+    <div id="reader-column" role="dialog" aria-modal="true" aria-labelledby="reader-meta">
+      <p id="reader-meta">
+        <i id="reader-mood" aria-hidden="true"></i>
+        <span id="reader-when"></span>
+      </p>
+      <p id="reader-text"></p>
+      <div id="reader-foot">
+        <button id="reader-close" type="button">Close</button>
+        <span id="reader-steps">
+          <button id="reader-prev" type="button">Earlier night</button>
+          <button id="reader-next" type="button">Later night</button>
+        </span>
       </div>
-      <p id="entry-meta"></p>
-      <p id="entry-full"></p>
     </div>
   </div>
 

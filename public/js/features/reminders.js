@@ -118,7 +118,10 @@ export class ReminderManager {
       return;
     }
 
-    this.elements.reminderText.textContent = "You have not added today's entry yet. Add one entry to stop reminders for the day.";
+    // The composer placeholder already says tonight is still open, so this speaks only about
+    // notifications — no second nudge.
+    this.elements.reminderText.textContent =
+      "Want a quiet nudge in the evening on nights you have not written?";
     this.elements.reminderBanner.classList.add("open");
 
     const pushSupported = isPushSupported();

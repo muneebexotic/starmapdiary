@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SENTIMENT_CONFIG } from "../config/sentiment.js";
-import { buildEntryPreview, escapeHtml, formatDate } from "../utils/formatters.js";
+import { buildEntryPreview, escapeHtml } from "../utils/formatters.js";
 import { createBackgroundStarfield, createGlowTexture } from "./galaxy-utils.js";
 import { detectQuality } from "./quality.js";
 import { createComposer } from "./post.js";
@@ -110,6 +110,9 @@ export class SceneManager {
     this.trailDraw = null;
     this.trailSweep = null;
     this.prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.driftEnabled = true;
+    // Touch has no hover, so a long press is how a phone glimpses a night before opening it.
+    this.touch = { pending: null, longPressed: false, timer: null };
 
     this.starTexture = createGlowTexture(this.THREE);
     this.backgroundField = createBackgroundStarfield(this.THREE, this.quality.backgroundStars);
@@ -132,9 +135,13 @@ export class SceneManager {
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerDown = this.handlePointerDown.bind(this);
 
+    this.handlePointerUp = this.handlePointerUp.bind(this);
+
     window.addEventListener("resize", this.handleResize);
     window.addEventListener("pointermove", this.handlePointerMove);
     window.addEventListener("pointerdown", this.handlePointerDown);
+    window.addEventListener("pointerup", this.handlePointerUp);
+    window.addEventListener("pointercancel", this.handlePointerUp);
 
     this.animate();
   }
@@ -348,26 +355,98 @@ export class SceneManager {
     this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    if (this.hoveredStar) {
-      const text = this.hoveredStar.userData.entry.text;
-      const preview = buildEntryPreview(text);
-      this.tooltip.innerHTML = `<strong>${escapeHtml(preview)}</strong><br>${formatDate(this.hoveredStar.userData.entry.createdAt)}`;
-      this.tooltip.style.left = `${event.clientX}px`;
-      this.tooltip.style.top = `${event.clientY}px`;
+    // Moving means orbiting, not pressing.
+    if (this.touch.pending) {
+      const moved =
+        Math.abs(event.clientX - this.touch.pending.x) + Math.abs(event.clientY - this.touch.pending.y);
+      if (moved > 10) this.clearLongPress();
     }
+
+    if (this.hoveredStar) {
+      this.showPreview(this.hoveredStar.userData.entry, event.clientX, event.clientY);
+    }
+  }
+
+  entryAt(clientX, clientY) {
+    this.pointer.x = (clientX / window.innerWidth) * 2 - 1;
+    this.pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+
+    const hittable = this.diaryStars.filter((s) => (s.userData.currentOpacity ?? 1) > 0.1);
+    const hits = this.raycaster.intersectObjects(hittable, false);
+    return hits.length > 0 ? hits[0].object.userData.entry : null;
   }
 
   handlePointerDown(event) {
     if (event.target !== this.renderer.domElement) return;
-    this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    this.raycaster.setFromCamera(this.pointer, this.camera);
 
-    const hittable = this.diaryStars.filter(s => (s.userData.currentOpacity ?? 1) > 0.1);
-    const intersects = this.raycaster.intersectObjects(hittable, false);
-    if (intersects.length > 0 && this.onStarSelected) {
-      this.onStarSelected(intersects[0].object.userData.entry);
+    // A tap should not open a night until the finger lifts, so a long press can preview instead.
+    if (event.pointerType === "touch") {
+      this.clearLongPress();
+      this.touch.pending = { x: event.clientX, y: event.clientY };
+      this.touch.longPressed = false;
+      this.touch.timer = window.setTimeout(() => this.showLongPressPreview(), 380);
+      return;
     }
+
+    const entry = this.entryAt(event.clientX, event.clientY);
+    if (entry && this.onStarSelected) this.onStarSelected(entry);
+  }
+
+  handlePointerUp(event) {
+    if (event.pointerType !== "touch") return;
+
+    const pending = this.touch.pending;
+    const longPressed = this.touch.longPressed;
+    this.clearLongPress();
+
+    if (longPressed) {
+      window.setTimeout(() => this.clearHover(), 1400);
+      return;
+    }
+
+    if (!pending || event.type === "pointercancel") return;
+
+    const entry = this.entryAt(pending.x, pending.y);
+    if (entry && this.onStarSelected) this.onStarSelected(entry);
+  }
+
+  clearLongPress() {
+    window.clearTimeout(this.touch.timer);
+    this.touch.timer = null;
+    this.touch.pending = null;
+  }
+
+  showLongPressPreview() {
+    const pending = this.touch.pending;
+    if (!pending) return;
+
+    const entry = this.entryAt(pending.x, pending.y);
+    if (!entry) return;
+
+    this.touch.longPressed = true;
+    this.showPreview(entry, pending.x, pending.y);
+  }
+
+  // Shared by hover and long press: first 80 characters, then the mood dot and the date.
+  showPreview(entry, clientX, clientY) {
+    const cfg = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
+    const when = new Date(entry.createdAt).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long"
+    });
+
+    this.tooltip.innerHTML =
+      `<span class="preview-text">${escapeHtml(buildEntryPreview(entry.text))}</span>` +
+      `<span class="preview-meta"><i style="background:${cfg.color};box-shadow:0 0 12px ${cfg.color}"></i>` +
+      `${escapeHtml(when)} · ${escapeHtml(cfg.label)}</span>`;
+
+    // Clamped so the card never hangs off either edge.
+    const clamped = Math.min(Math.max(clientX, 150), window.innerWidth - 150);
+    this.tooltip.style.left = `${clamped}px`;
+    this.tooltip.style.top = `${clientY}px`;
+    this.tooltip.style.opacity = "1";
+    this.tooltip.setAttribute("aria-hidden", "false");
   }
 
   updateHoverState() {
@@ -421,6 +500,29 @@ export class SceneManager {
       const line = new this.THREE.Line(geometry, material);
       this.constellationGroup.add(line);
     }
+  }
+
+  getEntryScreenPosition(entryId) {
+    const star = this.diaryStars.find((candidate) => candidate.userData.entry.id === entryId);
+    if (!star) return null;
+
+    const projected = star.position.clone().project(this.camera);
+    return {
+      x: (projected.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-projected.y * 0.5 + 0.5) * window.innerHeight,
+      onScreen: projected.z < 1
+    };
+  }
+
+  // Entries oldest-first, for stepping between nights in the reader.
+  getEntriesChronological() {
+    return [...this.diaryEntries].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  }
+
+  // The sky holds still while a night is being read.
+  setDrift(enabled) {
+    this.driftEnabled = enabled;
+    this.controls.autoRotate = enabled;
   }
 
   // ── Streak trail ─────────────────────────────────────────
@@ -723,7 +825,7 @@ export class SceneManager {
 
     // A very slow drift of the orbit centre keeps the composition alive when nobody is
     // touching it, without ever moving enough to feel like the page is doing something.
-    if (this.quality.cameraMotion) {
+    if (this.quality.cameraMotion && this.driftEnabled) {
       this.controls.target.y = this.contentCentre.y + Math.sin(t * 0.06) * 2.6;
       this.controls.target.x = this.contentCentre.x + Math.cos(t * 0.043) * 1.8;
       this.controls.target.z = this.contentCentre.z;

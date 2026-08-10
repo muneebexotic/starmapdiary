@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Feature | Daily journaling streaks for Star Map Diary |
-| Status | Phases 1–3 implemented (engine, quiet UI, constellation trail) — Phase 4 not started |
+| Status | Phases 1–3 implemented (engine, quiet UI, constellation trail) — Phase 4 not started. **The UI in §8 has since been superseded by the interface redesign; see §8.0.** |
 | Author | Design + engineering spec |
 | Date | 2026-08-09 |
 | Related systems | `diary_entries`, `reminder_settings`, `/api/reminders/*`, `SceneManager` constellation layer |
@@ -349,6 +349,37 @@ This is a small change to `src/domain/entries.js` and should land in the same ph
 ---
 
 ## 8. UI / UX specification
+
+### 8.0 Superseded — read this first
+
+Sections 8.1–8.8 describe the streak UI as originally specified and as built in Phases 2–3. That
+UI **no longer exists**. The whole interface was redesigned afterwards (bundle and spec in
+`design/incoming/`), and the streak surfaces moved with it. The principles behind this section
+survive unchanged — quiet by default, never render a zero, a break leads with the longest run,
+invitational copy, no colour-only states — and the streak *engine* (§4–§7) is untouched.
+
+What changed:
+
+| §8 described | What ships now |
+| --- | --- |
+| A streak pill in the top-left cluster | A meta row in the deck: `Mon, 10 August · 6 nights · Log` |
+| A popover card with a 28-day dot grid | The **log** — a bottom sheet on phone, a standing panel from 900px — holding a Monday-first 28-night calendar |
+| A separate date-filter button, popover and `<input type="date">` | Deleted. Tapping a night in the log's calendar filters the sky; they were always the same list |
+| "Show streaks" link inside the date popover | A proper `Streaks` switch in the log's settings |
+| A milestone toast above the composer | The milestone line inside the deck, sharing one transient channel with every other message |
+| A `#hint` bar plus a one-time focus tip | Three timed beats through that same message line, so nothing can collide |
+| Reminder banner carrying the nudge | The composer placeholder carries the nudge (`Tonight is still open.` / `Another line?`); the banner speaks only about notifications |
+| A centred modal titled "Journal Entry" for reading | The reader: the touched star stays lit, the sky stops drifting, and the text is pinned beside it with a leader line on desktop. Adds Earlier/Later night |
+
+Two decisions taken during that redesign are worth recording here because they change streak
+behaviour, not just its appearance:
+
+- **The calendar is the filter.** `scene.filterByDate()` is now driven by a calendar cell.
+- **Milestones fire into the shared message line**, so a milestone and an error can never stack.
+
+Element ids referenced below (`#streak-btn`, `#streak-popover`, `#streak-grid`, `#streak-toast`,
+`#date-filter*`) no longer exist. The current ids are in `public/index.html`.
+
 
 ### 8.1 Concept: the Constellation Trail
 

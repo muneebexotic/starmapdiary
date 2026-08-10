@@ -132,8 +132,7 @@ button {
 }
 
 #entry-input,
-#entry-full,
-#modal-card,
+#reader-text,
 .auth-field input {
   user-select: text;
   -webkit-user-select: text;
@@ -875,82 +874,102 @@ body.composer-hidden #deck {
   pointer-events: none;
 }
 
-/* ── Reader (restyled fully in a later pass) ───────────────── */
+.preview-text {
+  display: block;
+}
 
-#modal {
+.preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: rgba(244, 238, 229, 0.58);
+}
+
+.preview-meta i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: var(--radius-pill);
+}
+
+/* ── Reading a night ───────────────────────────────────────── */
+
+#reader {
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: var(--gutter);
   background: var(--wash);
   backdrop-filter: blur(2px);
   animation: smd-fade 0.34s var(--ease);
 }
 
-#modal.open {
-  display: flex;
+#reader[hidden] {
+  display: none;
 }
 
-#modal-card {
-  width: min(100%, 560px);
+/* The star you touched stays lit above the wash. */
+#reader-star {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  margin: -55px 0 0 -55px;
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.34s var(--ease);
+}
+
+#reader-star.visible {
+  opacity: 1;
+}
+
+/* Desktop only: a hairline from the star to its text, like an annotated chart. */
+#reader-leader {
+  position: absolute;
+  height: 1px;
+  display: none;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(245, 201, 106, 0.65), rgba(244, 238, 229, 0.1));
+}
+
+#reader-leader.to-left {
+  background: linear-gradient(to left, rgba(245, 201, 106, 0.65), rgba(244, 238, 229, 0.1));
+}
+
+#reader-column {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   max-height: 86dvh;
   overflow: auto;
-  padding: 26px;
-  border-radius: var(--radius-log);
-  background: var(--log-panel);
-  backdrop-filter: var(--blur-log);
-  box-shadow: var(--shadow-log);
+  overscroll-behavior: contain;
+  padding: 30px 22px calc(30px + var(--sab));
+  animation: smd-rise 0.4s var(--ease);
 }
 
-#modal-header {
+#reader-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-#modal-title {
+  gap: 8px;
   margin: 0;
-  font-family: var(--sans);
-  font-size: 10.5px;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
-}
-
-#close-modal {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: none;
-}
-
-.close-icon {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--ink-2);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-#entry-meta {
-  margin: 14px 0 0;
   font-size: 12px;
   letter-spacing: 0.05em;
   color: var(--ink-3);
 }
 
-#entry-full {
-  margin: 12px 0 0;
+#reader-mood {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: var(--radius-pill);
+}
+
+#reader-text {
+  margin: 14px 0 0;
   font-family: var(--serif);
   font-size: 20px;
   font-weight: 300;
@@ -959,6 +978,42 @@ body.composer-hidden #deck {
   color: var(--ink);
   white-space: pre-wrap;
   text-wrap: pretty;
+}
+
+#reader-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+#reader-steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+}
+
+#reader-close,
+#reader-prev,
+#reader-next {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+#reader-close {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#reader-prev:disabled,
+#reader-next:disabled {
+  color: rgba(244, 238, 229, 0.24);
+  cursor: default;
 }
 
 /* ── Desktop ───────────────────────────────────────────────── */
@@ -981,7 +1036,21 @@ body.composer-hidden #deck {
     display: none;
   }
 
-  #entry-full {
+  #reader-column {
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 440px;
+    max-height: 70dvh;
+    padding: 0;
+    animation: smd-fade 0.4s var(--ease);
+  }
+
+  #reader-leader {
+    display: block;
+  }
+
+  #reader-text {
     font-size: 21px;
   }
 
@@ -993,8 +1062,3 @@ body.composer-hidden #deck {
   }
 }
 
-@media (hover: none) {
-  #tooltip {
-    display: none;
-  }
-}
