@@ -2,9 +2,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SENTIMENT_CONFIG } from "../config/sentiment.js";
 import { buildEntryPreview, escapeHtml, formatDate } from "../utils/formatters.js";
-import { createBackgroundStarfield, createGlowTexture, randomPositionInGalaxy } from "./galaxy-utils.js";
+import { createBackgroundStarfield, createGlowTexture } from "./galaxy-utils.js";
 import { detectQuality } from "./quality.js";
 import { createComposer } from "./post.js";
+import { galaxyPosition, distanceFromCentre } from "./layout.js";
 
 function localDateString(iso) {
   const d = new Date(iso);
@@ -38,6 +39,9 @@ const DRAW_DURATION_MS = 600;
 const FLARE_DURATION_MS = 520;
 const SWEEP_DURATION_MS = 1400;
 const SWEEP_WINDOW = 3;
+// Sentiment links are local detail, not long-haul connections: beyond this they read as chords
+// cutting across the spiral rather than as constellations.
+const MAX_SENTIMENT_LINK_DISTANCE = 34;
 
 export class SceneManager {
   constructor({ container, tooltip, onStarSelected }) {
@@ -52,7 +56,8 @@ export class SceneManager {
 
     this.scene = new this.THREE.Scene();
     this.camera = new this.THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1200);
-    this.camera.position.set(0, 22, 170);
+    // Inclined ~28 degrees: a spiral read from above is a spiral, edge-on it is a smudge.
+    this.camera.position.set(0, 78, 148);
 
     this.quality = detectQuality();
 
@@ -71,7 +76,7 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.07;
     this.controls.minDistance = 38;
-    this.controls.maxDistance = 360;
+    this.controls.maxDistance = 520;
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.22;
 
@@ -83,6 +88,9 @@ export class SceneManager {
 
     this.diaryEntries = [];
     this.diaryStars = [];
+    this.layoutEpochMs = null;
+    this.contentRadius = 0;
+    this.contentCentre = new this.THREE.Vector3();
     this.hoveredStar = null;
     this.filterDate = null;
     this.constellationTargetOpacity = 0.11;
@@ -131,13 +139,82 @@ export class SceneManager {
     this.animate();
   }
 
+  // Positions are derived from the timestamp at render time (see layout.js). The server still
+  // stores a position column because it is NOT NULL and older clients read it, but nothing here
+  // depends on the stored value any more.
   getSuggestedPosition(sentiment, createdAt) {
-    return randomPositionInGalaxy({
-      THREE: this.THREE,
-      sentiment,
-      createdAt,
-      entries: this.diaryEntries
-    });
+    return galaxyPosition({ createdAt, sentiment }, this.layoutEpochMs ?? Date.parse(createdAt));
+  }
+
+  // The user's earliest entry anchors the spiral, so their history starts at the centre however
+  // late they joined. Entries always arrive newest-last, so this settles on the first one.
+  noteLayoutEpoch(createdAt) {
+    const ms = Date.parse(createdAt);
+    if (!Number.isFinite(ms)) return false;
+    if (this.layoutEpochMs === null || ms < this.layoutEpochMs) {
+      this.layoutEpochMs = ms;
+      return true;
+    }
+    return false;
+  }
+
+  // Reposition every star against the current epoch. Only needed if an entry turns up older
+  // than everything already loaded.
+  relayoutAll() {
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      const star = this.diaryStars[i];
+      const next = galaxyPosition(star.userData.entry, this.layoutEpochMs);
+      star.userData.entry.position = next;
+      star.position.set(next.x, next.y, next.z);
+    }
+    this.rebuildStreakTrail();
+  }
+
+  // Frames whatever history exists, so three entries and five years both open well composed.
+  updateContentFraming() {
+    if (this.diaryStars.length === 0) return;
+
+    const centre = new this.THREE.Vector3();
+    for (let i = 0; i < this.diaryStars.length; i += 1) centre.add(this.diaryStars[i].position);
+    centre.divideScalar(this.diaryStars.length);
+    this.contentCentre.copy(centre);
+
+    let radius = 0;
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      radius = Math.max(radius, this.diaryStars[i].position.distanceTo(centre));
+    }
+    this.contentRadius = radius;
+
+    // Only re-aim while the opening flight is still running; after that the view is the user's.
+    if (!this.intro) return;
+    this.controls.target.copy(centre);
+
+    // Fit to how wide and how tall the galaxy actually lands on screen, measured along the
+    // camera's own right and up axes. A bounding sphere would treat this thin inclined arm as
+    // if it were a ball and park the camera roughly twice as far away as it needs to be.
+    const forward = this.camera.position.clone().sub(centre).normalize();
+    const right = new this.THREE.Vector3().crossVectors(this.camera.up, forward).normalize();
+    const up = new this.THREE.Vector3().crossVectors(forward, right).normalize();
+
+    const tanV = Math.tan(this.THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    const tanH = tanV * this.camera.aspect;
+
+    // Solved per star, because the camera is perspective and this arm has real depth: a star
+    // nearer the camera projects further out, so fitting on lateral extent alone crops it.
+    // For each star, |lateral| <= (distance - depthTowardCamera) * tan(halfFov).
+    const offset = new this.THREE.Vector3();
+    let required = 60;
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      offset.copy(this.diaryStars[i].position).sub(centre);
+      const towardCamera = offset.dot(forward);
+      required = Math.max(
+        required,
+        towardCamera + Math.abs(offset.dot(up)) / tanV,
+        towardCamera + Math.abs(offset.dot(right)) / tanH
+      );
+    }
+
+    this.intro.to = this.THREE.MathUtils.clamp(required * 1.2, 60, 460);
   }
 
   filterByDate(dateStr) {
@@ -167,6 +244,9 @@ export class SceneManager {
     this.tooltip.style.opacity = "0";
 
     this.streakData = null;
+    this.layoutEpochMs = null;
+    this.contentRadius = 0;
+    this.contentCentre.set(0, 0, 0);
     this.disposeStreakTrail();
     this.updateStreakVisibility();
 
@@ -187,9 +267,14 @@ export class SceneManager {
   }
 
   addEntry(entry) {
+    const epochMoved = this.noteLayoutEpoch(entry.createdAt);
+
+    // The stored coordinate is ignored: position is a function of when the entry was written.
+    entry.position = galaxyPosition(entry, this.layoutEpochMs);
+
     const cfg = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
     const lenFactor = Math.min(String(entry.text || "").length, 800);
-    const size = this.THREE.MathUtils.mapLinear(lenFactor, 1, 800, 5, 20);
+    const size = this.THREE.MathUtils.mapLinear(lenFactor, 1, 800, 3, 10);
 
     const material = new this.THREE.SpriteMaterial({
       map: this.starTexture,
@@ -220,6 +305,11 @@ export class SceneManager {
     this.diaryStars.push(star);
     this.scene.add(star);
     this.addConstellationLinks(star);
+
+    // Defensive: entries normally arrive oldest-first, but if one predates the current anchor
+    // the whole spiral has to shift with it.
+    if (epochMoved && this.diaryStars.length > 1) this.relayoutAll();
+    this.updateContentFraming();
   }
 
   handleResize() {
@@ -318,6 +408,7 @@ export class SceneManager {
 
     for (let i = 0; i < linkCount; i += 1) {
       const target = candidates[i];
+      if (newStar.position.distanceTo(target.position) > MAX_SENTIMENT_LINK_DISTANCE) break;
       const points = [newStar.position.clone(), target.position.clone()];
       const geometry = new this.THREE.BufferGeometry().setFromPoints(points);
       const material = new this.THREE.LineBasicMaterial({
@@ -633,8 +724,9 @@ export class SceneManager {
     // A very slow drift of the orbit centre keeps the composition alive when nobody is
     // touching it, without ever moving enough to feel like the page is doing something.
     if (this.quality.cameraMotion) {
-      this.controls.target.y = Math.sin(t * 0.06) * 2.6;
-      this.controls.target.x = Math.cos(t * 0.043) * 1.8;
+      this.controls.target.y = this.contentCentre.y + Math.sin(t * 0.06) * 2.6;
+      this.controls.target.x = this.contentCentre.x + Math.cos(t * 0.043) * 1.8;
+      this.controls.target.z = this.contentCentre.z;
     }
 
     this.updateCameraIntro(now);
