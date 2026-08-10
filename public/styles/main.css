@@ -179,6 +179,11 @@ button {
   transition: opacity 0.3s var(--ease);
 }
 
+/* An explicit display beats the user-agent rule for [hidden], so say it outright. */
+#focus-toggle-btn[hidden] {
+  display: none;
+}
+
 .dim-dot {
   width: 15px;
   height: 15px;
@@ -193,7 +198,12 @@ body.composer-hidden #focus-toggle-btn {
   opacity: 0.4;
 }
 
-body.composer-hidden .dim-dot {
+body.composer-hidden /* An explicit display beats the user-agent rule for [hidden], so say it outright. */
+#focus-toggle-btn[hidden] {
+  display: none;
+}
+
+.dim-dot {
   width: 9px;
   height: 9px;
   border-color: transparent;
