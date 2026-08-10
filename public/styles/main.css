@@ -1,4 +1,68 @@
+/* ── Fonts ───────────────────────────────────────────────────
+   Self-hosted (scripts/vendor-fonts.js) so first paint touches no third-party origin and
+   there is no flash of fallback type. Variable `wght` axis: one file per style covers the
+   whole scale. Newsreader is everything the user writes; Karla is everything the app says. */
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/fonts/newsreader-wght-normal.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/fonts/newsreader-wght-italic.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Karla";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/vendor/fonts/karla-wght-normal.woff2") format("woff2-variations");
+}
+
 :root {
+  /* ── Redesign tokens (see design/incoming/README.md) ──────
+     The interface borrows its colour from the sky and introduces no palette of its own.
+     --ink-3 on --panel measures ~5.5:1; nothing dimmer than 0.56 alpha, nothing under 11px. */
+  --serif: "Newsreader", ui-serif, Georgia, serif;
+  --sans: "Karla", ui-sans-serif, system-ui, sans-serif;
+
+  --ink: rgba(244, 238, 229, 0.94);
+  --ink-2: rgba(244, 238, 229, 0.72);
+  --ink-3: rgba(244, 238, 229, 0.62);
+  --ink-4: rgba(244, 238, 229, 0.56);
+  --hairline: rgba(244, 238, 229, 0.08);
+  --edge: rgba(244, 238, 229, 0.1);
+  --gold: #f5c96a;
+  --blue: #72a6ff;
+  --log-panel: rgba(7, 10, 19, 0.74);
+  --composer-bg: rgba(8, 11, 20, 0.55);
+  --wash: rgba(2, 3, 10, 0.68);
+
+  /* Elevation is blur, not borders. */
+  --blur-log: blur(36px) saturate(1.2);
+  --blur-composer: blur(26px);
+  --blur-hover: blur(18px);
+  --shadow-log: 0 -20px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-composer: 0 20px 48px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gutter: 16px;
+  --column: 640px;
+
+  --radius-composer: 22px;
+  --radius-log: 28px;
+  --radius-cell: 13px;
+  --radius-button: 16px;
+  --radius-hover: 16px;
+
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);

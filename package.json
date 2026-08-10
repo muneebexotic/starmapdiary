@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "test": "node --test \"test/**/*.test.js\"",
     "mcp:supabase": "mcp-server-supabase --project-ref %SUPABASE_PROJECT_REF%",
-    "vendor:three": "node scripts/vendor-three.js"
+    "vendor:three": "node scripts/vendor-three.js",
+    "vendor:fonts": "node scripts/vendor-fonts.js"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +25,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@fontsource-variable/karla": "^5.3.0",
+    "@fontsource-variable/newsreader": "^5.3.0",
     "@supabase/mcp-server-supabase": "^0.6.3",
     "three": "^0.185.1"
   }
