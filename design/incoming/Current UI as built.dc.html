@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <script src="./diary-data.js"></script>
+  <script src="./sky.js"></script>
+  <style>
+    body { margin:0; background:#0a0b0f; }
+    a { color:#f5c96a; } a:hover { color:#fbd076; }
+    .rc * { box-sizing:border-box; }
+    .rc { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; color:rgba(245,248,255,0.92); }
+    .rc .btn { border:1px solid rgba(255,255,255,0.22); background:linear-gradient(160deg,rgba(245,201,106,0.95),rgba(214,227,255,0.9)); color:#0f1524; box-shadow:0 8px 18px rgba(0,0,0,0.35); font-family:inherit; font-weight:600; cursor:pointer; }
+    .rc .card { border:1px solid rgba(255,255,255,0.18); background:linear-gradient(160deg,rgba(245,201,106,0.09),rgba(114,166,255,0.07) 58%,rgba(16,24,42,0.1)),rgba(10,15,26,0.94); box-shadow:0 16px 32px rgba(0,0,0,0.45); backdrop-filter:blur(12px); border-radius:20px; display:grid; gap:10px; }
+    .rc .day { aspect-ratio:1; border-radius:4px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); }
+    .rc .day.log { border-color:rgba(245,201,106,0.5); background:rgba(245,201,106,0.72); }
+    .rc .day.rest { border-color:rgba(114,166,255,0.75); background:rgba(114,166,255,0.16); }
+    .rc .day.today { box-shadow:0 0 0 2px rgba(255,255,255,0.42); }
+    .rc .lg i { width:9px; height:9px; border-radius:3px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); display:inline-block; }
+    .rc .lg i.log { border-color:rgba(245,201,106,0.5); background:rgba(245,201,106,0.72); }
+    .rc .lg i.rest { border-color:rgba(114,166,255,0.75); background:rgba(114,166,255,0.16); }
+    .rc .lnk { padding:4px 0; border:0; background:none; color:rgba(220,228,242,0.68); font-family:inherit; font-size:12px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; justify-self:start; }
+  </style>
+</helmet>
+
+<section style="min-height:100vh; padding:64px 56px 96px; background:#0a0b0f; font-family:Karla,'Helvetica Neue',Arial,sans-serif;">
+  <div style="max-width:1400px; margin:0 auto; display:flex; flex-direction:column; gap:14px;">
+    <p style="margin:0; font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Reference</p>
+    <h1 style="margin:0; font-size:30px; font-weight:500; letter-spacing:-0.01em; color:rgba(242,236,227,0.92);">Current interface, rebuilt from the repo</h1>
+    <p style="margin:0; max-width:60ch; font-size:15px; line-height:1.6; color:rgba(242,236,227,0.62);">Every value here comes from <code style="font-size:13px; color:rgba(245,201,106,0.9);">public/styles/main.css</code> and <code style="font-size:13px; color:rgba(245,201,106,0.9);">public/index.html</code> — including the collisions: the send button sits under the focus toggle, and the top hint runs beneath the filter, streak and log-out controls.</p>
+  </div>
+
+  <div style="max-width:1400px; margin:52px auto 0; display:flex; flex-wrap:wrap; gap:40px;">
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Phone · signed in</p>
+      <div class="rc" style="position:relative; width:390px; height:844px; border-radius:34px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky stars="300" style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:358px; text-align:center; font-size:12px; line-height:1.35; letter-spacing:0.02em; color:rgba(220,228,242,0.68); z-index:12;">Drag to orbit · Pinch to zoom · Tap stars to read</div>
+        <button class="btn" style="position:absolute; top:12px; left:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; left:66px; height:46px; min-width:46px; padding:0 14px; border-radius:999px; display:inline-flex; align-items:center; gap:7px; z-index:22; box-shadow:0 0 0 2px rgba(245,201,106,0.6),0 0 14px rgba(245,201,106,0.25),0 8px 18px rgba(0,0,0,0.35);">
+          <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor; stroke:currentColor; stroke-width:1.4; stroke-linejoin:round;"><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z"></path></svg>
+          <span style="font-size:13px; font-weight:700; line-height:1;">6</span>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; right:12px; height:40px; padding:0 14px; border-radius:999px; font-size:13px; z-index:22;">Log Out</button>
+        <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:358px; z-index:20;">
+          <div style="position:relative;">
+            <textarea readonly style="width:100%; height:80px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:27px 68px 27px 16px; font-size:16px; line-height:1.4; resize:none; outline:none; font-family:monospace;" placeholder="Write a journal entry and create a star..."></textarea>
+            <button class="btn" style="position:absolute; right:12px; bottom:12px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:12px; bottom:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+      <p style="margin:0; max-width:390px; font-size:12.5px; line-height:1.5; color:rgba(242,236,227,0.5);">The 44px send button and the 46px focus toggle overlap by roughly 30 × 28px.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Phone · streak card</p>
+      <div class="rc" style="position:relative; width:390px; height:844px; border-radius:34px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky stars="300" style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:358px; text-align:center; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68); z-index:12;">Drag to orbit · Pinch to zoom · Tap stars to read</div>
+        <button class="btn" style="position:absolute; top:12px; left:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; left:66px; height:46px; min-width:46px; padding:0 14px; border-radius:999px; display:inline-flex; align-items:center; gap:7px; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor; stroke:currentColor; stroke-width:1.4;"><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z"></path></svg>
+          <span style="font-size:13px; font-weight:700; line-height:1;">6</span>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; right:12px; height:40px; padding:0 14px; border-radius:999px; font-size:13px; z-index:22;">Log Out</button>
+        <div class="card" style="position:absolute; top:66px; left:12px; right:12px; max-width:340px; padding:14px; z-index:22;">
+          <p style="margin:0; font-size:15px; font-weight:600; line-height:1.3; color:rgba(250,243,230,0.95);">6 nights · today is still open</p>
+          <p style="margin:0; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68);">Longest: 23 nights</p>
+          <div style="display:grid; grid-template-columns:repeat(7,minmax(0,26px)); justify-content:start; gap:5px;">
+            <sc-for list="{{ gridCells }}" as="cell" hint-placeholder-count="28">
+              <span class="{{ cell.cls }}"></span>
+            </sc-for>
+          </div>
+          <p class="lg" style="margin:0; display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; color:rgba(220,228,242,0.55);">
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i class="log"></i>Entry</span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i></i>None</span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i class="rest"></i>Rest day</span>
+          </p>
+          <p style="margin:0; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68);">Next: Fortnight, 8 nights away</p>
+          <button class="lnk" type="button">Hide streaks</button>
+        </div>
+        <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:358px; z-index:20;">
+          <div style="position:relative;">
+            <textarea readonly style="width:100%; height:80px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:27px 68px 27px 16px; font-size:16px; line-height:1.4; resize:none; outline:none; font-family:monospace;" placeholder="Write a journal entry and create a star..."></textarea>
+            <button class="btn" style="position:absolute; right:12px; bottom:12px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:12px; bottom:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+      <p style="margin:0; max-width:390px; font-size:12.5px; line-height:1.5; color:rgba(242,236,227,0.5);">The card covers the hint line and sits under the log-out button.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Phone · date filter</p>
+      <div class="rc" style="position:relative; width:390px; height:844px; border-radius:34px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky stars="300" style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:358px; text-align:center; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68); z-index:12;">Drag to orbit · Pinch to zoom · Tap stars to read</div>
+        <button class="btn" style="position:absolute; top:12px; left:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; left:66px; height:46px; min-width:46px; padding:0 14px; border-radius:999px; display:inline-flex; align-items:center; gap:7px; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor; stroke:currentColor; stroke-width:1.4;"><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z"></path></svg>
+          <span style="font-size:13px; font-weight:700; line-height:1;">6</span>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; right:12px; height:40px; padding:0 14px; border-radius:999px; font-size:13px; z-index:22;">Log Out</button>
+        <div class="card" style="position:absolute; top:66px; left:12px; width:268px; padding:13px 14px; z-index:22;">
+          <p style="margin:0; font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(220,228,242,0.6);">✦ Filter stars by date</p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="date" style="flex:1; min-width:0; height:40px; border-radius:20px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.85); color:rgba(245,248,255,0.92); padding:0 10px; font-size:16px; font-family:inherit; outline:none; color-scheme:dark;">
+            <button class="btn" style="min-height:40px; padding:0 12px; font-size:11px; border-radius:999px;">Clear</button>
+          </div>
+        </div>
+        <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:358px; z-index:20;">
+          <div style="position:relative;">
+            <textarea readonly style="width:100%; height:80px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:27px 68px 27px 16px; font-size:16px; line-height:1.4; resize:none; outline:none; font-family:monospace;" placeholder="Write a journal entry and create a star..."></textarea>
+            <button class="btn" style="position:absolute; right:12px; bottom:12px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:12px; bottom:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+      <p style="margin:0; max-width:390px; font-size:12.5px; line-height:1.5; color:rgba(242,236,227,0.5);">A second popover in the same corner, with its own separate 28-day grid elsewhere.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Phone · reading an entry</p>
+      <div class="rc" style="position:relative; width:390px; height:844px; border-radius:34px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky stars="300" style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; flex-direction:column; justify-content:flex-end; z-index:30;">
+          <div style="width:100%; max-height:88%; overflow:auto; background:rgba(8,12,22,0.95); border:1px solid rgba(255,255,255,0.2); border-radius:26px 26px 0 0; padding:16px 16px 24px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;">
+              <h2 style="margin:0; font-size:17px; font-weight:600;">Journal Entry</h2>
+              <button class="btn" style="width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center;">
+                <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+            <p style="margin:0 0 10px; color:rgba(220,228,242,0.68); font-size:13px;">Reflective | Aug 08, 2026, 10:42 PM</p>
+            <p style="margin:0; white-space:pre-wrap; line-height:1.5; font-size:14px;">Walked home the long way tonight. The air had that first-cold-of-autumn edge to it and I didn't mind at all. Kept thinking about how much of this year I spent waiting for something to start, when it had already started.</p>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:12px; bottom:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+      <p style="margin:0; max-width:390px; font-size:12.5px; line-height:1.5; color:rgba(242,236,227,0.5);">A titled sheet with a close X. The star you touched is gone from view.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Phone · signed out</p>
+      <div class="rc" style="position:relative; width:390px; height:844px; border-radius:34px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky stars="300" style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:358px; text-align:center; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68); z-index:12;">Drag to orbit · Pinch to zoom · Tap stars to read</div>
+        <div style="position:absolute; top:36px; left:50%; transform:translateX(-50%); width:340px; display:grid; gap:8px; padding:12px 14px; background:rgba(10,14,24,0.72); border:1px solid rgba(255,255,255,0.18); border-radius:26px; backdrop-filter:blur(8px); z-index:22;">
+          <div style="display:grid; gap:6px;">
+            <input placeholder="Email" style="width:100%; height:40px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:0 12px; font-size:16px; outline:none;">
+            <input placeholder="Password" type="password" style="width:100%; height:40px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:0 12px; font-size:16px; outline:none;">
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" style="min-height:40px; padding:0 14px; font-size:13px; border-radius:999px;">Sign Up</button>
+            <button class="btn" style="min-height:40px; padding:0 14px; font-size:13px; border-radius:999px;">Log In</button>
+            <button class="btn" style="min-height:40px; padding:0 14px; font-size:13px; border-radius:999px; margin-left:auto; opacity:0.55;">Log Out</button>
+          </div>
+          <p style="margin:0; color:rgba(220,228,242,0.68); font-size:12px; line-height:1.3;">Not signed in.</p>
+        </div>
+        <div style="position:absolute; left:12px; right:12px; bottom:68px; padding:12px; border-radius:18px; border:1px solid rgba(255,255,255,0.2); background:linear-gradient(160deg,rgba(245,201,106,0.13),rgba(114,166,255,0.1) 58%,rgba(16,24,42,0.18)),rgba(10,15,26,0.92); box-shadow:0 14px 28px rgba(0,0,0,0.35); display:grid; gap:10px; z-index:23;">
+          <p style="margin:0; font-size:12px; line-height:1.4;">Tip: Use Focus View to hide the writing controls and enjoy a full galaxy canvas.</p>
+          <button class="btn" style="justify-self:end; height:28px; padding:0 10px; font-size:11px; border-radius:999px;">Got it</button>
+        </div>
+        <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:358px; z-index:20;">
+          <div style="position:relative;">
+            <textarea readonly style="width:100%; height:80px; border-radius:24px; border:1px solid rgba(138,151,176,0.35); background:rgba(6,10,20,0.82); color:rgba(213,222,238,0.92); padding:27px 68px 27px 16px; font-size:16px; line-height:1.4; resize:none; outline:none; font-family:monospace;" placeholder="Sign in or sign up to unlock journaling..."></textarea>
+            <button style="position:absolute; right:12px; bottom:12px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center; background:linear-gradient(160deg,rgba(62,73,96,0.9),rgba(96,113,140,0.88)); border:1px solid rgba(171,185,210,0.42); color:rgba(235,243,255,0.94); box-shadow:0 8px 18px rgba(0,0,0,0.34); cursor:pointer;">
+              <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round;"><path d="M8 10V8a4 4 0 118 0v2"></path><rect x="6.5" y="10" width="11" height="9.5" rx="2.2"></rect><path d="M12 13.3v3.2"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:12px; bottom:12px; width:46px; height:46px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+      <p style="margin:0; max-width:390px; font-size:12.5px; line-height:1.5; color:rgba(242,236,227,0.5);">Sign-up form, focus tip and locked composer all present at once on a 390px screen.</p>
+    </div>
+
+  </div>
+
+  <div style="max-width:1400px; margin:56px auto 0; display:flex; flex-wrap:wrap; gap:40px;">
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Desktop · signed in, streak card open</p>
+      <div class="rc" style="position:relative; width:1280px; height:800px; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:780px; text-align:center; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68); z-index:12;">Drag to orbit | Scroll to zoom | Hover and click stars to read entries</div>
+        <button class="btn" style="position:absolute; top:12px; left:12px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"></circle></svg>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; left:64px; height:44px; min-width:44px; padding:0 14px; border-radius:999px; display:inline-flex; align-items:center; gap:7px; z-index:22;">
+          <svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:currentColor; stroke:currentColor; stroke-width:1.4;"><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z"></path></svg>
+          <span style="font-size:13px; font-weight:700; line-height:1;">6</span>
+        </button>
+        <button class="btn" style="position:absolute; top:12px; right:12px; height:36px; padding:0 14px; border-radius:999px; font-size:12px; z-index:22;">Log Out</button>
+        <div class="card" style="position:absolute; top:64px; left:64px; width:292px; padding:14px; z-index:22;">
+          <p style="margin:0; font-size:15px; font-weight:600; line-height:1.3; color:rgba(250,243,230,0.95);">6 nights · today is still open</p>
+          <p style="margin:0; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68);">Longest: 23 nights</p>
+          <div style="display:grid; grid-template-columns:repeat(7,minmax(0,26px)); justify-content:start; gap:5px;">
+            <sc-for list="{{ gridCells }}" as="cell" hint-placeholder-count="28">
+              <span class="{{ cell.cls }}"></span>
+            </sc-for>
+          </div>
+          <p class="lg" style="margin:0; display:flex; flex-wrap:wrap; gap:4px 12px; font-size:11px; color:rgba(220,228,242,0.55);">
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i class="log"></i>Entry</span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i></i>None</span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><i class="rest"></i>Rest day</span>
+          </p>
+          <p style="margin:0; font-size:12px; line-height:1.35; color:rgba(220,228,242,0.68);">Next: Fortnight, 8 nights away</p>
+          <button class="lnk" type="button">Hide streaks</button>
+        </div>
+        <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:780px; z-index:20;">
+          <div style="position:relative;">
+            <textarea readonly style="width:100%; height:64px; border-radius:24px; border:1px solid rgba(255,255,255,0.15); background:rgba(4,8,18,0.8); color:rgba(245,248,255,0.92); padding:21px 68px 21px 16px; font-size:14px; line-height:1.4; resize:none; outline:none; font-family:monospace;" placeholder="Write a journal entry and create a star..."></textarea>
+            <button class="btn" style="position:absolute; right:12px; bottom:12px; width:40px; height:40px; padding:0; border-radius:999px; display:grid; place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn" style="position:absolute; right:18px; bottom:18px; width:44px; height:44px; padding:0; border-radius:999px; display:grid; place-items:center; z-index:24;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round;"><path d="M5 9l7 7 7-7"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <p style="margin:0; font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(242,236,227,0.42);">Desktop · reading an entry</p>
+      <div class="rc" style="position:relative; width:1280px; height:800px; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.09);">
+        <night-sky style="position:absolute; inset:0;"></night-sky>
+        <div style="position:absolute; inset:0; background:rgba(0,0,0,0.6); display:grid; place-items:center; padding:18px; z-index:30;">
+          <div style="width:680px; max-height:624px; overflow:auto; background:rgba(8,12,22,0.95); border:1px solid rgba(255,255,255,0.2); border-radius:26px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;">
+              <h2 style="margin:0; font-size:17px; font-weight:600;">Journal Entry</h2>
+              <button class="btn" style="width:30px; height:30px; padding:0; border-radius:999px; display:grid; place-items:center;">
+                <svg viewBox="0 0 24 24" style="width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round;"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+              </button>
+            </div>
+            <p style="margin:0 0 10px; color:rgba(220,228,242,0.68); font-size:13px;">Reflective | Aug 08, 2026, 10:42 PM</p>
+            <p style="margin:0; white-space:pre-wrap; line-height:1.5; font-size:14px;">Walked home the long way tonight. The air had that first-cold-of-autumn edge to it and I didn't mind at all. Kept thinking about how much of this year I spent waiting for something to start, when it had already started.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const entries = (window.DIARY_ENTRIES || []);
+    const rest = new Set(window.DIARY_REST_DAYS || []);
+    const today = window.DIARY_TODAY || "2026-08-10";
+    const logged = new Set(entries.map((e) => e.createdAt.slice(0, 10)));
+    const end = Date.parse(today + "T00:00:00");
+    const cells = [];
+    for (let i = 27; i >= 0; i -= 1) {
+      const d = new Date(end - i * 86400000);
+      const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const cls = ["day", logged.has(key) ? "log" : "", rest.has(key) ? "rest" : "", key === today ? "today" : ""].filter(Boolean).join(" ");
+      cells.push({ cls: cls });
+    }
+    return { gridCells: cells };
+  }
+}
+</script>
+</body>
+</html>

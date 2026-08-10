@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,200..500;1,6..72,300&display=swap" rel="stylesheet">
+  <script src="./diary-data.js"></script>
+  <script src="./sky.js"></script>
+  <style>
+    html, body { margin:0; height:100%; background:#02030a; overflow:hidden; overscroll-behavior:none; }
+    *, ::before, ::after { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    a { color:#f5c96a; text-decoration:none; }
+    a:hover { color:#fbd68a; }
+    ::selection { background:rgba(245,201,106,0.28); }
+    :focus-visible { outline:2px solid rgba(245,201,106,0.9); outline-offset:3px; border-radius:10px; }
+    input, textarea, button { font:inherit; color:inherit; }
+    textarea::placeholder, input::placeholder { color:rgba(244,238,229,0.40); }
+    @keyframes smd-rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+    @keyframes smd-fade { from { opacity:0; } to { opacity:1; } }
+    @keyframes smd-lift { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+    }
+  </style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="position:fixed; inset:0; overflow:hidden; background:#02030a; font-family:Karla,'Helvetica Neue',Arial,sans-serif; color:rgba(244,238,229,0.94); --ui-op:1; --ui-y:0px; --ui-pe:auto; --kb:0px; --sat:env(safe-area-inset-top, 0px); --sab:env(safe-area-inset-bottom, 0px); --dimbtn-op:1; --dot-size:15px; --dot-bg:transparent; --dot-border:1px solid rgba(244,238,229,0.5); --send-bg:transparent; --send-fg:rgba(244,238,229,0.34); --send-shadow:inset 0 0 0 1px rgba(244,238,229,0.16); --log-left:0px; --log-right:0px; --log-top:auto; --log-bottom:0px; --log-w:auto; --log-radius:28px 28px 0 0; --log-maxh:84dvh; --log-pad:10px 18px calc(24px + var(--sab)); --handle-display:block; --rd-left:0px; --rd-right:0px; --rd-top:auto; --rd-bottom:0px; --rd-w:auto; --rd-maxh:86dvh; --rd-pad:30px 22px calc(26px + var(--sab)); --rd-size:20px;">
+
+  <night-sky ref="{{ skyRef }}" style="position:absolute; inset:0;"></night-sky>
+
+  <div style="position:absolute; inset:0; opacity:var(--ui-op); transform:translateY(var(--ui-y)); pointer-events:var(--ui-pe); transition:opacity 0.42s cubic-bezier(0.2,0.8,0.2,1), transform 0.42s cubic-bezier(0.2,0.8,0.2,1);">
+
+    <sc-if value="{{ filterLabel }}" hint-placeholder-val="{{ false }}">
+      <button type="button" onClick="{{ clearFilter }}" style="position:absolute; top:calc(11px + var(--sat)); left:16px; height:44px; padding:0 8px 0 16px; border-radius:999px; border:1px solid rgba(244,238,229,0.12); background:rgba(8,11,20,0.6); backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); color:rgba(244,238,229,0.86); font-size:13px; letter-spacing:0.01em; display:inline-flex; align-items:center; gap:12px; cursor:pointer; pointer-events:auto; animation:smd-lift 0.3s ease;">
+        <span>{{ filterLabel }}</span>
+        <span aria-hidden="true" style="width:28px; height:28px; border-radius:50%; display:grid; place-items:center; background:rgba(244,238,229,0.08); font-size:15px; line-height:1; color:rgba(244,238,229,0.7);">×</span>
+      </button>
+    </sc-if>
+
+    <div style="position:absolute; left:0; right:0; bottom:0; padding:88px 16px calc(16px + var(--sab) + var(--kb)); background:linear-gradient(to top, rgba(2,3,10,0.92) 6%, rgba(2,3,10,0.6) 46%, rgba(2,3,10,0) 100%); pointer-events:none; transition:padding 0.26s cubic-bezier(0.2,0.8,0.2,1);">
+      <div style="max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:8px; pointer-events:auto;">
+
+        <sc-if value="{{ milestone }}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0 0 4px; text-align:center; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:21px; line-height:1.3; color:#f5c96a; animation:smd-lift 0.5s ease;">{{ milestone }}</p>
+        </sc-if>
+
+        <sc-if value="{{ message }}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0 0 2px; text-align:center; font-size:12.5px; line-height:1.45; letter-spacing:0.01em; color:rgba(244,238,229,0.72); animation:smd-fade 0.35s ease;">{{ message }}</p>
+        </sc-if>
+
+        <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ true }}">
+          <button type="button" onClick="{{ toggleLog }}" aria-label="Open the log" style="display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; padding:0 6px; background:none; border:0; cursor:pointer; text-align:left;">
+            <span style="display:inline-flex; align-items:center; gap:11px; font-size:12.5px; letter-spacing:0.02em; color:rgba(244,238,229,0.56);">
+              <span>{{ todayLabel }}</span>
+              <sc-if value="{{ streaksOn }}" hint-placeholder-val="{{ true }}">
+                <span style="display:inline-flex; align-items:center; gap:7px; color:rgba(244,238,229,0.78);">
+                  <span aria-hidden="true" style="width:5px; height:5px; border-radius:50%; background:#f5c96a; box-shadow:0 0 9px rgba(245,201,106,0.85);"></span>
+                  <span>{{ streakLabel }}</span>
+                </span>
+              </sc-if>
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:8px; font-size:12.5px; letter-spacing:0.06em; text-transform:uppercase; color:rgba(244,238,229,0.5);">
+              <span>Log</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;"><path d="M6 14l6-6 6 6"></path></svg>
+            </span>
+          </button>
+
+          <div style="display:flex; align-items:flex-end; gap:9px;">
+            <textarea ref="{{ inputRef }}" value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="{{ placeholder }}" maxlength="4000" aria-label="Write tonight's entry" style="flex:1 1 auto; min-width:0; display:block; min-height:60px; max-height:168px; resize:none; padding:18px; border-radius:22px; border:1px solid rgba(244,238,229,0.10); background:rgba(8,11,20,0.55); backdrop-filter:blur(26px); -webkit-backdrop-filter:blur(26px); color:rgba(244,238,229,0.94); font-family:Newsreader,Georgia,serif; font-size:17px; line-height:1.5; outline:none; box-shadow:0 20px 48px rgba(0,0,0,0.45); overflow-y:auto;"></textarea>
+            <button type="button" onClick="{{ submit }}" aria-label="{{ sendLabel }}" style="flex:0 0 44px; width:44px; height:44px; margin-bottom:8px; padding:0; border:0; border-radius:999px; display:grid; place-items:center; cursor:pointer; background:var(--send-bg); color:var(--send-fg); box-shadow:var(--send-shadow); transition:background 0.3s ease, box-shadow 0.3s ease, color 0.3s ease, transform 0.16s ease;" style-active="transform:scale(0.93)">
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px; height:15px; fill:currentColor;"><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3-2.3 7.3-2.3-7.3L2.4 12l7.3-2.3z"></path></svg>
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:20px; padding:0 4px; animation:smd-rise 0.6s cubic-bezier(0.2,0.8,0.2,1);">
+            <div>
+              <h1 style="margin:0; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:32px; line-height:1.1; letter-spacing:-0.015em; color:rgba(244,238,229,0.94);">Star Map Diary</h1>
+              <p style="margin:8px 0 0; max-width:36ch; font-size:13.5px; line-height:1.55; color:rgba(244,238,229,0.62); text-wrap:pretty;">A private diary. Each night you write becomes a star, and nights in a row are drawn into a constellation.</p>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <label style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:10.5px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(244,238,229,0.5);">Email</span>
+                <input type="email" autocomplete="email" onChange="{{ onEmail }}" value="{{ email }}" style="height:46px; padding:0 2px; background:none; border:0; border-bottom:1px solid rgba(244,238,229,0.16); color:rgba(244,238,229,0.94); font-size:16px; outline:none;">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:2px;">
+                <span style="font-size:10.5px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(244,238,229,0.5);">Password</span>
+                <input type="password" autocomplete="current-password" onChange="{{ onPassword }}" value="{{ password }}" style="height:46px; padding:0 2px; background:none; border:0; border-bottom:1px solid rgba(244,238,229,0.16); color:rgba(244,238,229,0.94); font-size:16px; outline:none;">
+              </label>
+            </div>
+            <button type="button" onClick="{{ authenticate }}" style="width:100%; min-height:50px; border:0; border-radius:16px; background:linear-gradient(160deg,#f7d489,#eedcc4); color:#10131c; font-size:15px; font-weight:600; letter-spacing:0.01em; cursor:pointer; box-shadow:0 10px 30px rgba(245,201,106,0.22); transition:transform 0.16s ease, box-shadow 0.24s ease;" style-active="transform:scale(0.99)">{{ authCta }}</button>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+              <p style="margin:0; font-size:12.5px; line-height:1.4; color:rgba(244,238,229,0.56);">{{ authStatus }}</p>
+              <button type="button" onClick="{{ switchAuth }}" style="min-height:44px; padding:0; background:none; border:0; color:rgba(244,238,229,0.78); font-size:12.5px; text-decoration:underline; text-underline-offset:4px; text-decoration-color:rgba(244,238,229,0.28); cursor:pointer;">{{ authSwitch }}</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <sc-if value="{{ tip }}" hint-placeholder-val="{{ false }}">
+      <p style="position:absolute; top:calc(62px + var(--sat)); right:18px; margin:0; max-width:196px; text-align:right; font-size:12.5px; line-height:1.45; color:rgba(244,238,229,0.72); animation:smd-fade 0.6s ease; pointer-events:none;">Hide everything from here, and just look.</p>
+    </sc-if>
+
+    <sc-if value="{{ logOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeLog }}" style="position:absolute; inset:0; background:rgba(2,3,10,0.4); animation:smd-fade 0.3s ease; pointer-events:auto;"></div>
+      <div role="dialog" aria-label="The log" style="position:absolute; left:var(--log-left); right:var(--log-right); top:var(--log-top); bottom:var(--log-bottom); width:var(--log-w); max-height:var(--log-maxh); overflow:auto; padding:var(--log-pad); border-radius:var(--log-radius); background:rgba(7,10,19,0.74); backdrop-filter:blur(36px) saturate(1.2); -webkit-backdrop-filter:blur(36px) saturate(1.2); box-shadow:0 -20px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06); pointer-events:auto; animation:smd-rise 0.36s cubic-bezier(0.2,0.8,0.2,1);">
+        <div aria-hidden="true" style="display:var(--handle-display); width:38px; height:4px; border-radius:2px; background:rgba(244,238,229,0.18); margin:0 auto 16px;"></div>
+
+        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px;">
+          <p style="margin:0; white-space:nowrap; font-size:10.5px; letter-spacing:0.18em; text-transform:uppercase; color:rgba(244,238,229,0.5);">Your nights</p>
+          <p style="margin:0; white-space:nowrap; font-size:12px; color:rgba(244,238,229,0.5);">{{ calendarRange }}</p>
+        </div>
+
+        <div aria-hidden="true" style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:2px;">
+          <sc-for list="{{ weekdays }}" as="wd" hint-placeholder-count="7">
+            <span style="text-align:center; font-size:11px; letter-spacing:0.1em; color:rgba(244,238,229,0.62);">{{ wd }}</span>
+          </sc-for>
+        </div>
+
+        <div role="grid" aria-label="Pick a night to show only its stars" style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px;">
+          <sc-for list="{{ nights }}" as="n" hint-placeholder-count="35">
+            <button type="button" onClick="{{ n.pick }}" aria-label="{{ n.label }}" disabled="{{ n.disabled }}" style="{{ n.cell }}">
+              <span aria-hidden="true" style="{{ n.dot }}"></span>
+            </button>
+          </sc-for>
+        </div>
+
+        <p style="margin:12px 0 0; font-size:12.5px; line-height:1.5; color:rgba(244,238,229,0.56);">{{ calendarHint }}</p>
+
+        <sc-if value="{{ streaksOn }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:26px; display:flex; flex-direction:column; gap:5px;">
+            <p style="margin:0; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:27px; line-height:1.15; letter-spacing:-0.01em; color:rgba(244,238,229,0.94);">{{ streakHeadline }}</p>
+            <p style="margin:0; font-size:13px; line-height:1.5; color:rgba(244,238,229,0.72);">{{ streakSub }}</p>
+            <p style="margin:0; font-size:12.5px; line-height:1.5; color:rgba(244,238,229,0.56);">{{ streakNext }}</p>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:26px; border-top:1px solid rgba(244,238,229,0.08);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:60px; border-bottom:1px solid rgba(244,238,229,0.08);">
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span style="font-size:14px; color:rgba(244,238,229,0.94);">Streaks</span>
+              <span style="font-size:12px; line-height:1.4; color:rgba(244,238,229,0.56);">{{ streakRowHint }}</span>
+            </div>
+            <button type="button" role="switch" aria-checked="{{ streaksOn }}" aria-label="Streaks" onClick="{{ toggleStreaks }}" style="{{ swBtn }}"><span aria-hidden="true" style="{{ swStreak }}"></span><span aria-hidden="true" style="{{ knobStreak }}"></span></button>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:60px; border-bottom:1px solid rgba(244,238,229,0.08);">
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span style="font-size:14px; color:rgba(244,238,229,0.94);">Nightly reminder</span>
+              <span style="font-size:12px; line-height:1.4; color:rgba(244,238,229,0.56);">{{ reminderRowHint }}</span>
+            </div>
+            <button type="button" role="switch" aria-checked="{{ remindersOn }}" aria-label="Nightly reminder" onClick="{{ toggleReminders }}" style="{{ swBtn }}"><span aria-hidden="true" style="{{ swRemind }}"></span><span aria-hidden="true" style="{{ knobRemind }}"></span></button>
+          </div>
+
+          <sc-if value="{{ iosHint }}" hint-placeholder-val="{{ false }}">
+            <p style="margin:0; padding:14px 0; font-size:12.5px; line-height:1.55; color:rgba(245,201,106,0.86); border-bottom:1px solid rgba(244,238,229,0.08);">{{ iosHint }}</p>
+          </sc-if>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:60px;">
+            <span style="font-size:12.5px; line-height:1.4; color:rgba(244,238,229,0.56);">{{ authStatus }}</span>
+            <button type="button" onClick="{{ signOut }}" style="min-height:44px; padding:0 2px; background:none; border:0; color:rgba(244,238,229,0.86); font-size:13px; text-decoration:underline; text-underline-offset:4px; text-decoration-color:rgba(244,238,229,0.28); cursor:pointer;">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <sc-if value="{{ reading }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeReader }}" style="position:absolute; inset:0; background:rgba(2,3,10,0.68); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); animation:smd-fade 0.34s ease;"></div>
+    <div aria-hidden="true" style="{{ starGlow }}"></div>
+    <sc-if value="{{ leader }}" hint-placeholder-val="{{ false }}">
+      <div aria-hidden="true" style="{{ leader }}"></div>
+    </sc-if>
+    <div role="dialog" aria-modal="true" aria-label="Journal entry" style="position:absolute; left:var(--rd-left); right:var(--rd-right); top:var(--rd-top); bottom:var(--rd-bottom); width:var(--rd-w); max-height:var(--rd-maxh); overflow:auto; padding:var(--rd-pad); animation:smd-rise 0.42s cubic-bezier(0.2,0.8,0.2,1);">
+      <p style="margin:0 0 14px; display:flex; align-items:center; gap:9px; font-size:12px; letter-spacing:0.05em; color:rgba(244,238,229,0.62);">
+        <span aria-hidden="true" style="{{ moodDot }}"></span>
+        <span>{{ readMeta }}</span>
+      </p>
+      <p style="margin:0; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:var(--rd-size); line-height:1.62; letter-spacing:0.002em; color:rgba(244,238,229,0.94); white-space:pre-wrap; text-wrap:pretty;">{{ readText }}</p>
+      <div style="margin-top:28px; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+        <button type="button" onClick="{{ closeReader }}" style="min-height:44px; padding:0 2px; background:none; border:0; color:rgba(244,238,229,0.62); font-size:12.5px; letter-spacing:0.05em; text-transform:uppercase; cursor:pointer;">Close</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button type="button" onClick="{{ readEarlier }}" disabled="{{ noEarlier }}" style="{{ navEarlier }}">Earlier night</button>
+          <button type="button" onClick="{{ readLater }}" disabled="{{ noLater }}" style="{{ navLater }}">Later night</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hoverText }}" hint-placeholder-val="{{ false }}">
+    <div aria-hidden="true" style="{{ hoverStyle }}">
+      <p style="margin:0; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:15px; line-height:1.45; color:rgba(244,238,229,0.92); text-wrap:pretty;">{{ hoverText }}</p>
+      <p style="margin:8px 0 0; display:flex; align-items:center; gap:7px; font-size:11px; letter-spacing:0.06em; color:rgba(244,238,229,0.58);">
+        <span style="{{ hoverDot }}"></span>
+        <span>{{ hoverMeta }}</span>
+      </p>
+    </div>
+  </sc-if>
+
+  <button type="button" onClick="{{ toggleDim }}" aria-pressed="{{ dim }}" aria-label="{{ dimLabel }}" style="position:absolute; top:calc(11px + var(--sat)); right:12px; width:44px; height:44px; padding:0; border:0; background:none; border-radius:999px; display:grid; place-items:center; cursor:pointer; opacity:var(--dimbtn-op); transition:opacity 0.34s ease;" style-hover="opacity:1">
+    <span aria-hidden="true" style="display:block; width:var(--dot-size); height:var(--dot-size); border-radius:50%; border:var(--dot-border); background:var(--dot-bg); transition:width 0.3s cubic-bezier(0.2,0.8,0.2,1), height 0.3s cubic-bezier(0.2,0.8,0.2,1), background 0.3s ease, border-color 0.3s ease;"></span>
+  </button>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+const MOODS = { positive: "#f5c96a", neutral: "#f2f4ff", negative: "#72a6ff", reflective: "#8457db" };
+const MOOD_WORDS = { positive: "Bright", neutral: "Even", negative: "Heavy", reflective: "Reflective" };
+const MILESTONES = [
+  { days: 3, name: "First Light" }, { days: 7, name: "The Arc" }, { days: 14, name: "Fortnight" },
+  { days: 30, name: "Lunar Cycle" }, { days: 50, name: "Meridian" }, { days: 100, name: "Centaurus" },
+  { days: 200, name: "Deep Field" }, { days: 365, name: "Full Orbit" }
+];
+const TIP_KEY = "smd_intro_seen_v2";
+const DAY = 86400000;
+
+function key(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function parseDay(s) { const p = String(s).split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+function nights(n) { return n + (n === 1 ? " night" : " nights"); }
+
+class Component extends DCLogic {
+  state = {
+    signedIn: true, entries: [], draft: "", dim: false, logOpen: false,
+    reading: null, hover: null, filterDay: null, message: null, milestone: null,
+    streaksOn: true, remindersOn: false, tip: false, authMode: "signup",
+    email: "", password: "", account: "you@example.com", rest: [], today: "2026-08-10",
+    desktop: false, iosHint: false
+  };
+
+  rootRef = (el) => { this.root = el; if (el) this._layout(); };
+  inputRef = (el) => { this.input = el; };
+  skyRef = (el) => {
+    if (!el || this.sky === el) return;
+    this.sky = el;
+    el.addEventListener("star-open", (e) => this.openEntry(e.detail));
+    el.addEventListener("star-hover", (e) => this.setState({ hover: e.detail }));
+    el.addEventListener("sky-tap", () => {
+      if (this.state.reading) this.closeReader();
+      else if (this.state.logOpen) this.closeLog();
+    });
+    customElements.whenDefined("night-sky").then(() => this.pushEntries());
+  };
+
+  componentDidMount() {
+    const data = (window.DIARY_ENTRIES || []).slice();
+    this.setState({ entries: data, rest: (window.DIARY_REST_DAYS || []).slice(), today: window.DIARY_TODAY || key(new Date()) });
+    this._onResize = () => { this._layout(); this.forceUpdate(); };
+    window.addEventListener("resize", this._onResize);
+    document.addEventListener("keydown", this._onEsc = (e) => {
+      if (e.key !== "Escape") return;
+      if (this.state.reading) this.closeReader();
+      else if (this.state.logOpen) this.closeLog();
+      else if (this.state.dim) this.setDim(false);
+    });
+    if (window.visualViewport) {
+      this._onVV = () => {
+        const off = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+        if (this.root) this.root.style.setProperty("--kb", off + "px");
+      };
+      window.visualViewport.addEventListener("resize", this._onVV);
+      window.visualViewport.addEventListener("scroll", this._onVV);
+    }
+    if (new URLSearchParams(window.location.search).get("safe") === "ios" && this.root) {
+      this.root.style.setProperty("--sat", "54px");
+      this.root.style.setProperty("--sab", "34px");
+    }
+    const preset = new URLSearchParams(window.location.search).get("state");
+    if (preset === "log") this.setState({ logOpen: true });
+    if (preset === "out") this.setState({ signedIn: false }, () => this.pushEntries());
+    if (preset === "read") {
+      this.after(700, () => {
+        const list = this.sorted();
+        const pick = list[list.length - 2];
+        if (pick) this.openEntry(pick);
+      });
+    }
+    let seen = false;
+    try { seen = window.localStorage.getItem(TIP_KEY) === "1"; } catch (_e) { seen = false; }
+    if (!seen && !preset) this._runIntro();
+    this._syncVars();
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("resize", this._onResize);
+    document.removeEventListener("keydown", this._onEsc);
+    if (window.visualViewport && this._onVV) {
+      window.visualViewport.removeEventListener("resize", this._onVV);
+      window.visualViewport.removeEventListener("scroll", this._onVV);
+    }
+    for (const t of this._timers || []) window.clearTimeout(t);
+  }
+
+  componentDidUpdate() { this._syncVars(); }
+
+  after(ms, fn) { (this._timers = this._timers || []).push(window.setTimeout(fn, ms)); }
+
+  _runIntro() {
+    const coarse = window.matchMedia("(hover: none)").matches;
+    this.after(900, () => this.setState({ message: coarse ? "Drag to orbit. Pinch to zoom." : "Drag to orbit. Scroll to zoom." }));
+    this.after(4600, () => this.setState({ message: coarse ? "Tap a star to read that night." : "Hover a star to glimpse it. Click to read it." }));
+    this.after(8600, () => this.setState({ message: null, tip: true }));
+    this.after(14000, () => {
+      this.setState({ tip: false });
+      try { window.localStorage.setItem(TIP_KEY, "1"); } catch (_e) { /* restricted mode */ }
+    });
+  }
+
+  pushEntries() {
+    if (!this.sky || !this.sky.setEntries) return;
+    this.sky.setEntries(this.state.signedIn ? this.state.entries : []);
+  }
+
+  _syncVars() {
+    const r = this.root;
+    if (!r) return;
+    const s = this.state;
+    const hidden = s.dim;
+    r.style.setProperty("--ui-op", hidden ? "0" : "1");
+    r.style.setProperty("--ui-y", hidden ? "18px" : "0px");
+    r.style.setProperty("--ui-pe", hidden ? "none" : "auto");
+    r.style.setProperty("--dimbtn-op", hidden ? "0.4" : "1");
+    r.style.setProperty("--dot-size", hidden ? "9px" : "15px");
+    r.style.setProperty("--dot-bg", hidden ? "rgba(245,201,106,0.9)" : "transparent");
+    r.style.setProperty("--dot-border", hidden ? "1px solid rgba(245,201,106,0.9)" : "1px solid rgba(244,238,229,0.5)");
+    const ready = s.signedIn && s.draft.trim().length > 0;
+    r.style.setProperty("--send-bg", ready ? "linear-gradient(160deg,#f7d489,#eedcc4)" : "transparent");
+    r.style.setProperty("--send-fg", ready ? "#10131c" : "rgba(244,238,229,0.34)");
+    r.style.setProperty("--send-shadow", ready ? "0 8px 22px rgba(245,201,106,0.3)" : "inset 0 0 0 1px rgba(244,238,229,0.16)");
+    if (this.sky && this.sky.setDim) this.sky.setDim(s.reading ? 0.5 : s.logOpen ? 0.28 : 0);
+    if (this.sky && this.sky.setFrozen) this.sky.setFrozen(Boolean(s.reading));
+  }
+
+  _layout() {
+    const r = this.root;
+    if (!r) return;
+    const desktop = window.innerWidth >= 900;
+    this.desktop = desktop;
+    r.style.setProperty("--log-left", desktop ? "20px" : "0px");
+    r.style.setProperty("--log-right", desktop ? "auto" : "0px");
+    r.style.setProperty("--log-top", desktop ? "20px" : "auto");
+    r.style.setProperty("--log-bottom", desktop ? "20px" : "0px");
+    r.style.setProperty("--log-w", desktop ? "384px" : "auto");
+    r.style.setProperty("--log-radius", desktop ? "28px" : "28px 28px 0 0");
+    r.style.setProperty("--log-maxh", desktop ? "none" : "84dvh");
+    r.style.setProperty("--log-pad", desktop ? "26px 24px 28px" : "10px 18px calc(24px + var(--sab))");
+    r.style.setProperty("--handle-display", desktop ? "none" : "block");
+    this._placeReader();
+  }
+
+  _placeReader() {
+    const r = this.root;
+    if (!r) return;
+    const desktop = window.innerWidth >= 900;
+    if (!desktop || !this.state.reading) {
+      r.style.setProperty("--rd-left", "0px");
+      r.style.setProperty("--rd-right", "0px");
+      r.style.setProperty("--rd-top", "auto");
+      r.style.setProperty("--rd-bottom", "0px");
+      r.style.setProperty("--rd-w", "auto");
+      r.style.setProperty("--rd-maxh", "86dvh");
+      r.style.setProperty("--rd-pad", "30px 22px calc(30px + var(--sab))");
+      r.style.setProperty("--rd-size", "20px");
+      return;
+    }
+    const pos = this.starPos();
+    const w = window.innerWidth, h = window.innerHeight;
+    const colW = 440;
+    const right = !pos || pos.x < w / 2;
+    const left = right ? Math.min(w - colW - 40, pos.x + 130) : Math.max(40, pos.x - 130 - colW);
+    const top = Math.max(40, Math.min(h - 320, (pos ? pos.y : h / 2) - 120));
+    r.style.setProperty("--rd-left", Math.round(left) + "px");
+    r.style.setProperty("--rd-right", "auto");
+    r.style.setProperty("--rd-top", Math.round(top) + "px");
+    r.style.setProperty("--rd-bottom", "auto");
+    r.style.setProperty("--rd-w", colW + "px");
+    r.style.setProperty("--rd-maxh", (h - top - 60) + "px");
+    r.style.setProperty("--rd-pad", "0px");
+    r.style.setProperty("--rd-size", "21px");
+  }
+
+  starPos() {
+    if (!this.sky || !this.sky.screenPosOf || !this.state.reading) return null;
+    return this.sky.screenPosOf(this.state.reading.id);
+  }
+
+  // ── streak ────────────────────────────────────────────────
+  streak() {
+    const s = this.state;
+    const logged = new Set(s.entries.map((e) => e.createdAt.slice(0, 10)));
+    const rested = new Set(s.rest);
+    const openToday = !logged.has(s.today);
+    let cursor = parseDay(s.today);
+    if (openToday) cursor = new Date(cursor.getTime() - DAY);
+    let current = 0;
+    while (logged.has(key(cursor)) || rested.has(key(cursor))) {
+      if (logged.has(key(cursor))) current += 1;
+      cursor = new Date(cursor.getTime() - DAY);
+    }
+    const longest = Math.max(23, current);
+    const next = MILESTONES.find((m) => m.days > current) || null;
+    return { current: current, longest: longest, openToday: openToday, next: next, logged: logged, rested: rested };
+  }
+
+  // ── actions ───────────────────────────────────────────────
+  say(message, ms) {
+    this.setState({ message: message });
+    this.after(ms || 4200, () => this.setState((st) => (st.message === message ? { message: null } : null)));
+  }
+
+  onDraft = (e) => this.setState({ draft: e.target.value });
+  onEmail = (e) => this.setState({ email: e.target.value });
+  onPassword = (e) => this.setState({ password: e.target.value });
+
+  onKey = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); this.submit(); }
+  };
+
+  submit = () => {
+    const text = this.state.draft.trim();
+    if (!text) { this.say("Tonight is still open — a sentence is enough."); return; }
+    const before = this.streak();
+    const now = new Date();
+    const stamp = this.state.today + "T" + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + ":00";
+    const entry = { id: "n" + Date.now(), createdAt: stamp, sentiment: this.classify(text), text: text };
+    const entries = this.state.entries.concat([entry]);
+    this.setState({ entries: entries, draft: "" }, () => {
+      if (this.input) this.input.style.height = "";
+      if (this.sky && this.sky.addEntry) this.sky.addEntry(entry);
+      const after = this.streak();
+      const hit = MILESTONES.find((m) => m.days === after.current);
+      if (hit && this.state.streaksOn) {
+        this.setState({ milestone: hit.name + " · " + nights(after.current) });
+        this.after(5200, () => this.setState({ milestone: null }));
+      } else {
+        this.say("Tonight's star is placed.", 3200);
+      }
+    });
+  };
+
+  classify(text) {
+    const t = text.toLowerCase();
+    const has = (list) => list.some((w) => t.includes(w));
+    if (has(["think", "realis", "realiz", "reflect", "wonder", "memory", "noticed"])) return "reflective";
+    if (has(["sad", "tired", "anxious", "stress", "hurt", "lonely", "worried", "hard"])) return "negative";
+    if (has(["happy", "good", "great", "love", "hope", "proud", "calm", "grateful"])) return "positive";
+    return "neutral";
+  }
+
+  openEntry = (entry) => {
+    this.setState({ reading: entry, hover: null, logOpen: false }, () => this._placeReader());
+  };
+  closeReader = () => this.setState({ reading: null }, () => this._placeReader());
+
+  step = (dir) => {
+    const list = this.sorted();
+    const i = list.findIndex((e) => e.id === this.state.reading.id);
+    const nextEntry = list[i + dir];
+    if (nextEntry) this.openEntry(nextEntry);
+  };
+  readEarlier = () => this.step(-1);
+  readLater = () => this.step(1);
+
+  sorted() { return this.state.entries.slice().sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)); }
+
+  toggleLog = () => this.setState((s) => ({ logOpen: !s.logOpen, hover: null }));
+  closeLog = () => this.setState({ logOpen: false });
+
+  setDim = (v) => {
+    this.setState({ dim: v, logOpen: false, tip: false });
+    try { window.localStorage.setItem(TIP_KEY, "1"); } catch (_e) { /* restricted mode */ }
+  };
+  toggleDim = () => this.setDim(!this.state.dim);
+
+  pickDay = (day) => {
+    const same = this.state.filterDay === day;
+    this.setState({ filterDay: same ? null : day, logOpen: false });
+    if (this.sky && this.sky.focusDate) this.sky.focusDate(same ? null : day);
+  };
+  clearFilter = () => {
+    this.setState({ filterDay: null });
+    if (this.sky && this.sky.focusDate) this.sky.focusDate(null);
+  };
+
+  toggleStreaks = () => {
+    const on = !this.state.streaksOn;
+    this.setState({ streaksOn: on });
+    this.say(on ? "Streaks are back. They kept counting while they were off." : "Streaks are off. Your nights are still here.");
+  };
+
+  toggleReminders = () => {
+    const on = !this.state.remindersOn;
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent || "") &&
+      !(window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
+    this.setState({ remindersOn: on, iosHint: on && ios });
+    if (on && !ios) this.say("A reminder will arrive at nightfall.");
+  };
+
+  authenticate = () => {
+    if (!this.state.email.trim() || !this.state.password) {
+      this.say("An email and a password, and you're in.");
+      return;
+    }
+    this.setState({ signedIn: true, account: this.state.email.trim(), password: "" }, () => {
+      this.pushEntries();
+      this.say("Signed in as " + this.state.account, 3600);
+    });
+  };
+  switchAuth = () => this.setState((s) => ({ authMode: s.authMode === "signup" ? "login" : "signup" }));
+  signOut = () => {
+    this.setState({ signedIn: false, logOpen: false, reading: null, filterDay: null, draft: "" }, () => {
+      this.pushEntries();
+      if (this.sky && this.sky.focusDate) this.sky.focusDate(null);
+    });
+  };
+
+  // ── view values ───────────────────────────────────────────
+  calendar(st) {
+    const cells = [];
+    const end = parseDay(this.state.today);
+    const start = new Date(end.getTime() - 27 * DAY);
+    const back = (start.getDay() + 6) % 7;
+    const first = new Date(start.getTime() - back * DAY);
+    const weeks = Math.ceil((((end - first) / DAY) + 1 + ((6 - ((end.getDay() + 6) % 7)))) / 7);
+    for (let i = 0; i < weeks * 7; i += 1) {
+      const d = new Date(first.getTime() + i * DAY);
+      const k = key(d);
+      const future = d.getTime() > end.getTime();
+      const logged = st.logged.has(k);
+      const rested = st.rested.has(k);
+      const isToday = k === this.state.today;
+      const selected = this.state.filterDay === k;
+      const gold = this.state.streaksOn ? "#f5c96a" : "rgba(244,238,229,0.86)";
+      const glow = this.state.streaksOn ? "0 0 12px rgba(245,201,106,0.55)" : "none";
+      let dot = "display:block; width:4px; height:4px; border-radius:50%; background:rgba(244,238,229,0.2);";
+      if (future) dot = "display:block; width:4px; height:4px; border-radius:50%; background:rgba(244,238,229,0.07);";
+      else if (logged) dot = "display:block; width:10px; height:10px; border-radius:50%; background:" + gold + "; box-shadow:" + glow + ";";
+      else if (rested) dot = "display:block; width:10px; height:10px; border-radius:50%; border:1px solid rgba(114,166,255,0.85); background:rgba(114,166,255,0.14);";
+      let ring = "none";
+      if (selected) ring = "inset 0 0 0 1px rgba(245,201,106,0.85)";
+      else if (isToday) ring = "inset 0 0 0 1px rgba(244,238,229,0.24)";
+      const label = future ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+        (logged ? ": entry written" : rested ? ": rest night" : isToday ? ": today, still open" : ": no entry");
+      cells.push({
+        cell: "aspect-ratio:1; min-height:44px; display:grid; place-items:center; padding:0; border:0; border-radius:13px; background:none; box-shadow:" + ring + "; cursor:" + (future ? "default" : "pointer") + ";",
+        dot: dot, label: label, disabled: future, pick: future ? null : () => this.pickDay(k)
+      });
+    }
+    return cells;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const st = this.streak();
+    const today = parseDay(s.today);
+    const swBtn = "position:relative; width:52px; height:44px; flex:0 0 auto; padding:0; border:0; background:none; cursor:pointer;";
+    const sw = (on) => "position:absolute; top:6.5px; left:0; display:block; width:52px; height:31px; border-radius:999px; background:" +
+      (on ? "rgba(245,201,106,0.9)" : "rgba(244,238,229,0.14)") + "; transition:background 0.28s ease;";
+    const knob = (on) => "position:absolute; top:9.5px; left:" + (on ? "24px" : "3px") +
+      "; display:block; width:25px; height:25px; border-radius:50%; background:" + (on ? "#12151f" : "rgba(244,238,229,0.75)") +
+      "; transition:left 0.28s cubic-bezier(0.2,0.8,0.2,1), background 0.28s ease;";
+
+    const vals = {
+      rootRef: this.rootRef, skyRef: this.skyRef, inputRef: this.inputRef,
+      signedIn: s.signedIn, signedOut: !s.signedIn, dim: s.dim, logOpen: s.logOpen && s.signedIn,
+      draft: s.draft, email: s.email, password: s.password,
+      message: s.message, milestone: s.milestone, tip: s.tip,
+      streaksOn: s.streaksOn, remindersOn: s.remindersOn,
+      onDraft: this.onDraft, onKey: this.onKey, onEmail: this.onEmail, onPassword: this.onPassword,
+      submit: this.submit, toggleLog: this.toggleLog, closeLog: this.closeLog, toggleDim: this.toggleDim,
+      toggleStreaks: this.toggleStreaks, toggleReminders: this.toggleReminders,
+      authenticate: this.authenticate, switchAuth: this.switchAuth, signOut: this.signOut,
+      clearFilter: this.clearFilter, closeReader: this.closeReader,
+      readEarlier: this.readEarlier, readLater: this.readLater,
+      weekdays: ["M", "T", "W", "T", "F", "S", "S"],
+      nights: this.calendar(st),
+      swBtn: swBtn, swStreak: sw(s.streaksOn), knobStreak: knob(s.streaksOn),
+      swRemind: sw(s.remindersOn), knobRemind: knob(s.remindersOn),
+      dimLabel: s.dim ? "Show the interface" : "Hide the interface and just look",
+      sendLabel: s.draft.trim() ? "Place tonight's star" : "Write something first",
+      placeholder: st.openToday ? "Tonight is still open." : "Another line?",
+      todayLabel: today.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long" }),
+      streakLabel: st.current > 0 ? nights(st.current) : "no run yet",
+      calendarRange: new Date(today.getTime() - 27 * DAY).toLocaleDateString(undefined, { month: "short" }) + " – " + today.toLocaleDateString(undefined, { month: "short" }),
+      calendarHint: s.filterDay ? "Showing one night. Tap it again for the whole sky." : "Tap a night to show only its stars.",
+      streakHeadline: st.current > 0 ? nights(st.current) : "No run tonight",
+      streakSub: st.openToday ? "Today is still open." : "Tonight's star is placed.",
+      streakNext: st.next ? st.next.name + " at " + nights(st.next.days) + ", " + nights(st.next.days - st.current) + " away." : "",
+      streakRowHint: s.streaksOn ? "Counts, trail and milestones." : "Hidden. They keep counting quietly.",
+      reminderRowHint: s.remindersOn ? "One notification, late evening." : "Off. Nothing will interrupt you.",
+      iosHint: s.iosHint ? "On iPhone and iPad, add Star Map Diary to your Home Screen first: tap Share, then Add to Home Screen." : null,
+      authCta: s.authMode === "signup" ? "Begin" : "Return",
+      authSwitch: s.authMode === "signup" ? "I already have an account" : "Create an account instead",
+      authStatus: s.signedIn ? "Signed in as " + s.account : "Not signed in.",
+      filterLabel: s.filterDay ? parseDay(s.filterDay).toLocaleDateString(undefined, { day: "numeric", month: "long" }) : null,
+      reading: s.reading, hoverText: null, hoverMeta: null, hoverStyle: null, hoverDot: null,
+      starGlow: "display:none", leader: null, moodDot: "display:none", readMeta: "", readText: "",
+      noEarlier: true, noLater: true, navEarlier: "", navLater: ""
+    };
+
+    if (s.reading) {
+      const mood = MOODS[s.reading.sentiment] || MOODS.neutral;
+      const when = new Date(s.reading.createdAt);
+      vals.readMeta = when.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + " · " +
+        when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) + " · " + (MOOD_WORDS[s.reading.sentiment] || "Even");
+      vals.readText = s.reading.text;
+      vals.moodDot = "display:block; width:8px; height:8px; border-radius:50%; background:" + mood + "; box-shadow:0 0 12px " + mood + ";";
+      const list = this.sorted();
+      const i = list.findIndex((e) => e.id === s.reading.id);
+      vals.noEarlier = i <= 0;
+      vals.noLater = i < 0 || i >= list.length - 1;
+      const nav = (off) => "min-height:44px; padding:0 12px; border:0; border-radius:12px; background:none; font-size:12.5px; letter-spacing:0.03em; color:rgba(244,238,229," + (off ? "0.24" : "0.68") + "); cursor:" + (off ? "default" : "pointer") + ";";
+      vals.navEarlier = nav(vals.noEarlier);
+      vals.navLater = nav(vals.noLater);
+      const pos = this.starPos();
+      if (pos) {
+        vals.starGlow = "position:absolute; left:" + (pos.x - 55) + "px; top:" + (pos.y - 55) + "px; width:110px; height:110px; border-radius:50%; pointer-events:none; background:radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.5) 9%, " + mood + "44 30%, transparent 68%);";
+        if (window.innerWidth >= 900) {
+          const colLeft = Number.parseFloat(getComputedStyle(this.root).getPropertyValue("--rd-left")) || 0;
+          const rightSide = colLeft > pos.x;
+          const x0 = rightSide ? pos.x + 26 : colLeft + 440 + 24;
+          const len = rightSide ? Math.max(0, colLeft - 24 - x0) : Math.max(0, pos.x - 26 - x0);
+          vals.leader = "position:absolute; top:" + pos.y + "px; left:" + x0 + "px; width:" + len + "px; height:1px; pointer-events:none; background:linear-gradient(" +
+            (rightSide ? "to right" : "to left") + ", rgba(245,201,106,0.65), rgba(244,238,229,0.1));";
+        }
+      }
+    }
+
+    if (s.hover && s.hover.entry && !s.reading) {
+      const e = s.hover.entry;
+      const mood = MOODS[e.sentiment] || MOODS.neutral;
+      const when = new Date(e.createdAt);
+      const text = e.text.length > 80 ? e.text.slice(0, 80) + "…" : e.text;
+      const x = Math.max(150, Math.min(window.innerWidth - 150, s.hover.x));
+      const y = Math.max(120, s.hover.y);
+      vals.hoverText = text;
+      vals.hoverMeta = when.toLocaleDateString(undefined, { day: "numeric", month: "long" }) + " · " + (MOOD_WORDS[e.sentiment] || "Even");
+      vals.hoverDot = "display:block; width:6px; height:6px; border-radius:50%; background:" + mood + ";";
+      vals.hoverStyle = "position:absolute; left:" + x + "px; top:" + y + "px; transform:translate(-50%,calc(-100% - 26px)); width:max-content; max-width:min(300px,74vw); padding:13px 15px; border-radius:16px; background:rgba(5,7,15,0.86); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); box-shadow:0 18px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05); pointer-events:none; animation:smd-fade 0.16s ease;";
+    }
+
+    return vals;
+  }
+}
+</script>
+</body>
+</html>

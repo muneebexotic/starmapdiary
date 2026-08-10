@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600&family=Newsreader:opsz,wght@6..72,200..500&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#08090d; }
+    a { color:#f5c96a; } a:hover { color:#fbd68a; }
+  </style>
+</helmet>
+
+<section style="min-height:100vh; padding:72px 60px 120px; background:#08090d; font-family:Karla,'Helvetica Neue',Arial,sans-serif; color:rgba(244,238,229,0.92);">
+
+  <div style="max-width:900px; display:flex; flex-direction:column; gap:16px;">
+    <p style="margin:0; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Redesign · live</p>
+    <h1 style="margin:0; font-family:Newsreader,Georgia,serif; font-weight:300; font-size:44px; line-height:1.1; letter-spacing:-0.02em;">A quiet observatory</h1>
+    <p style="margin:0; max-width:62ch; font-size:15px; line-height:1.65; color:rgba(244,238,229,0.66); text-wrap:pretty;">Every frame below is the same running interface, not a picture of one. Write in it, tap a star, open the log, hide the interface. Warm ink, a single accent borrowed from the sky's own gold, and one surface visible at a time.</p>
+  </div>
+
+  <div style="margin-top:56px; display:flex; flex-wrap:wrap; gap:44px; align-items:flex-start;">
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <p style="margin:0; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Phone · at rest</p>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ yes }}" width="{{ phoneW }}" height="{{ phoneH }}" hint-size="402px,874px">
+        <iframe src="Star%20Map%20Diary.dc.html?safe=ios" title="Star Map Diary, at rest" style="width:100%; height:100%; border:0; display:block; background:#02030a;"></iframe>
+      </x-import>
+      <p style="margin:0; max-width:402px; font-size:13px; line-height:1.55; color:rgba(244,238,229,0.55); text-wrap:pretty;">Two things at rest: a line to write on, and one dot to turn everything off. The date and the run sit above the field and are also the way into the log.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <p style="margin:0; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Phone · the log</p>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ yes }}" width="{{ phoneW }}" height="{{ phoneH }}" hint-size="402px,874px">
+        <iframe src="Star%20Map%20Diary.dc.html?safe=ios&amp;state=log" title="Star Map Diary, the log" style="width:100%; height:100%; border:0; display:block; background:#02030a;"></iframe>
+      </x-import>
+      <p style="margin:0; max-width:402px; font-size:13px; line-height:1.55; color:rgba(244,238,229,0.55); text-wrap:pretty;">The 28-night history and the date filter were the same object all along. Tapping a night filters the sky to it; the streak is a sentence underneath, not a scoreboard.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <p style="margin:0; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Phone · reading a night</p>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ yes }}" width="{{ phoneW }}" height="{{ phoneH }}" hint-size="402px,874px">
+        <iframe src="Star%20Map%20Diary.dc.html?safe=ios&amp;state=read" title="Star Map Diary, reading an entry" style="width:100%; height:100%; border:0; display:block; background:#02030a;"></iframe>
+      </x-import>
+      <p style="margin:0; max-width:402px; font-size:13px; line-height:1.55; color:rgba(244,238,229,0.55); text-wrap:pretty;">No card, no title bar, no close X in the corner. The sky stills, the star you touched stays lit, and the writing rises next to it. Earlier and later nights are one tap away.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <p style="margin:0; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Phone · signed out</p>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ yes }}" width="{{ phoneW }}" height="{{ phoneH }}" hint-size="402px,874px">
+        <iframe src="Star%20Map%20Diary.dc.html?safe=ios&amp;state=out" title="Star Map Diary, signed out" style="width:100%; height:100%; border:0; display:block; background:#02030a;"></iframe>
+      </x-import>
+      <p style="margin:0; max-width:402px; font-size:13px; line-height:1.55; color:rgba(244,238,229,0.55); text-wrap:pretty;">No locked composer to shake at you. The sky is free to look at; the account is a name, a sentence and two ruled lines within thumb reach.</p>
+    </div>
+
+  </div>
+
+  <div style="margin-top:64px; display:flex; flex-direction:column; gap:14px;">
+    <p style="margin:0; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:rgba(244,238,229,0.62);">Desktop</p>
+    <x-import component-from-global-scope="ChromeWindow" from="./browser-window.jsx" width="{{ deskW }}" height="{{ deskH }}" url="starmapdiary.app" hint-size="1320px,860px">
+      <iframe src="Star%20Map%20Diary.dc.html" title="Star Map Diary on desktop" style="width:100%; height:100%; border:0; display:block; background:#02030a;"></iframe>
+    </x-import>
+    <p style="margin:0; max-width:70ch; font-size:13px; line-height:1.6; color:rgba(244,238,229,0.55); text-wrap:pretty;">Same interface, more room. The log becomes a standing panel on the left rather than a sheet. Hovering a star shows its first eighty characters; opening one draws a hairline from the star out to the writing, the way an annotated chart names what you are looking at.</p>
+  </div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return { phoneW: 402, phoneH: 874, deskW: 1320, deskH: 840, yes: true };
+  }
+}
+</script>
+</body>
+</html>
