@@ -14,12 +14,14 @@ export function createGlowTexture(THREE) {
   ctx.fillRect(0, 0, 256, 256);
 
   const texture = new THREE.CanvasTexture(canvas);
+  // three.js manages colour spaces since r152: without this the canvas is treated as linear
+  // data and the glow falloff comes out harsher than drawn.
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   return texture;
 }
 
-export function createBackgroundStarfield(THREE) {
-  const count = 1800;
+export function createBackgroundStarfield(THREE, count = 1800) {
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 

@@ -137,8 +137,16 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- three.js is self-hosted (see scripts/vendor-three.js): no third-party origin on first
+       paint, and the version is pinned by what is committed rather than by a URL. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.min.js",
+        "three/addons/": "/vendor/three/addons/"
+      }
+    }
+  </script>
   <script type="module" src="/js/app.js"></script>
   
   <!-- Vercel Speed Insights -->

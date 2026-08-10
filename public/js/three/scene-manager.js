@@ -1,6 +1,10 @@
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SENTIMENT_CONFIG } from "../config/sentiment.js";
 import { buildEntryPreview, escapeHtml, formatDate } from "../utils/formatters.js";
 import { createBackgroundStarfield, createGlowTexture, randomPositionInGalaxy } from "./galaxy-utils.js";
+import { detectQuality } from "./quality.js";
+import { createComposer } from "./post.js";
 
 function localDateString(iso) {
   const d = new Date(iso);
@@ -27,9 +31,9 @@ function nextDay(localDate) {
 
 const TRAIL_GOLD = "#f5c96a";
 const TRAIL_FADED = "#8fa1bd";
-const ACTIVE_OPACITY = 0.34;
-const HISTORY_OPACITY = 0.11;
-const BRIDGE_OPACITY = 0.18;
+const ACTIVE_OPACITY = 0.2;
+const HISTORY_OPACITY = 0.07;
+const BRIDGE_OPACITY = 0.12;
 const DRAW_DURATION_MS = 600;
 const FLARE_DURATION_MS = 520;
 const SWEEP_DURATION_MS = 1400;
@@ -41,20 +45,26 @@ export class SceneManager {
     this.tooltip = tooltip;
     this.onStarSelected = onStarSelected;
 
-    this.THREE = globalThis.THREE;
-    this.OrbitControls = this.THREE?.OrbitControls || globalThis.OrbitControls;
-
-    if (!this.THREE || !this.OrbitControls) {
-      throw new Error("Three.js or OrbitControls failed to load.");
-    }
+    // Held on the instance because galaxy-utils takes THREE as a parameter, and so the rest
+    // of this class reads the same way it did before three.js became a module import.
+    this.THREE = THREE;
+    this.OrbitControls = OrbitControls;
 
     this.scene = new this.THREE.Scene();
     this.camera = new this.THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1200);
     this.camera.position.set(0, 22, 170);
 
-    this.renderer = new this.THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.quality = detectQuality();
+
+    // antialias is off: bloom and grain hide edge stairs, and MSAA on a full-screen pass chain
+    // costs more than it returns here.
+    this.renderer = new this.THREE.WebGLRenderer({ antialias: false, alpha: true });
+    this.renderer.setPixelRatio(this.quality.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    // Filmic rolloff instead of clipping: bright star cores keep their colour instead of
+    // flattening into white discs.
+    this.renderer.toneMapping = this.THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new this.OrbitControls(this.camera, this.renderer.domElement);
@@ -65,12 +75,8 @@ export class SceneManager {
     this.controls.autoRotate = true;
     this.controls.autoRotateSpeed = 0.22;
 
-    const ambient = new this.THREE.AmbientLight(0xffffff, 0.75);
-    const pointLight = new this.THREE.PointLight(0x9cc3ff, 0.4, 700);
-    pointLight.position.set(70, 80, 80);
-
-    this.scene.add(ambient);
-    this.scene.add(pointLight);
+    // No lights: every material in this scene (sprites, points, lines) is unlit, so the
+    // AmbientLight and PointLight that used to be here contributed nothing to any pixel.
 
     this.pointer = new this.THREE.Vector2();
     this.raycaster = new this.THREE.Raycaster();
@@ -98,8 +104,21 @@ export class SceneManager {
     this.prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     this.starTexture = createGlowTexture(this.THREE);
-    this.backgroundField = createBackgroundStarfield(this.THREE);
+    this.backgroundField = createBackgroundStarfield(this.THREE, this.quality.backgroundStars);
     this.scene.add(this.backgroundField);
+
+    this.post = createComposer({
+      THREE: this.THREE,
+      renderer: this.renderer,
+      scene: this.scene,
+      camera: this.camera,
+      quality: this.quality
+    });
+
+    // A short flight inward on load, so arriving feels like arriving somewhere.
+    this.intro = this.quality.cameraMotion
+      ? { start: performance.now(), duration: 2600, from: 330, to: 170 }
+      : null;
 
     this.handleResize = this.handleResize.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
@@ -209,7 +228,23 @@ export class SceneManager {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.post.setSize(window.innerWidth, window.innerHeight);
     }, 80);
+  }
+
+  // Eases the camera's distance to the target without touching its angle, so OrbitControls
+  // keeps full ownership of rotation and its damping is undisturbed.
+  updateCameraIntro(now) {
+    if (!this.intro) return;
+
+    const progress = Math.min(1, (now - this.intro.start) / this.intro.duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const distance = this.THREE.MathUtils.lerp(this.intro.from, this.intro.to, eased);
+
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.camera.position.copy(this.controls.target).add(direction.multiplyScalar(distance));
+
+    if (progress >= 1) this.intro = null;
   }
 
   clearHover() {
@@ -595,8 +630,18 @@ export class SceneManager {
       }
     }
 
+    // A very slow drift of the orbit centre keeps the composition alive when nobody is
+    // touching it, without ever moving enough to feel like the page is doing something.
+    if (this.quality.cameraMotion) {
+      this.controls.target.y = Math.sin(t * 0.06) * 2.6;
+      this.controls.target.x = Math.cos(t * 0.043) * 1.8;
+    }
+
+    this.updateCameraIntro(now);
     this.updateHoverState();
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+
+    this.post.update(t);
+    this.post.composer.render();
   }
 }
