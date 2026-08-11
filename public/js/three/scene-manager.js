@@ -42,6 +42,11 @@ const SWEEP_WINDOW = 3;
 // Sentiment links are local detail, not long-haul connections: beyond this they read as chords
 // cutting across the spiral rather than as constellations.
 const MAX_SENTIMENT_LINK_DISTANCE = 34;
+// Picking tolerances in CSS pixels. A fingertip needs far more room than a cursor.
+const MOUSE_PICK_PX = 16;
+const TOUCH_PICK_PX = 28;
+const LONG_PRESS_MS = 380;
+const PREVIEW_HOLD_MS = 2800;
 
 export class SceneManager {
   constructor({ container, tooltip, onStarSelected }) {
@@ -83,15 +88,15 @@ export class SceneManager {
     // No lights: every material in this scene (sprites, points, lines) is unlit, so the
     // AmbientLight and PointLight that used to be here contributed nothing to any pixel.
 
-    this.pointer = new this.THREE.Vector2();
-    this.raycaster = new this.THREE.Raycaster();
-
     this.diaryEntries = [];
     this.diaryStars = [];
     this.layoutEpochMs = null;
     this.contentRadius = 0;
     this.contentCentre = new this.THREE.Vector3();
     this.hoveredStar = null;
+    this.hoveredEntry = null;
+    this.pointerClient = { x: -9999, y: -9999 };
+    this.previewTimer = null;
     this.filterDate = null;
     this.constellationTargetOpacity = 0.11;
     this._resizeTimer = null;
@@ -111,7 +116,7 @@ export class SceneManager {
     this.trailSweep = null;
     this.prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.driftEnabled = true;
-    // Touch has no hover, so a long press is how a phone glimpses a night before opening it.
+    // Touch: a tap glimpses, a long press opens.
     this.touch = { pending: null, longPressed: false, timer: null };
     // Hover tracking is for pointing devices only. A tap parks the pointer on the star it hit,
     // so leaving hover enabled on touch pins the preview open until the next tap elsewhere.
@@ -348,6 +353,8 @@ export class SceneManager {
   }
 
   clearHover() {
+    window.clearTimeout(this.previewTimer);
+    this.hoveredEntry = null;
     this.hoveredStar = null;
     this.tooltip.style.opacity = "0";
     this.tooltip.setAttribute("aria-hidden", "true");
@@ -358,8 +365,8 @@ export class SceneManager {
     if (event.pointerType === "touch") this.hoverTracking = false;
     else if (event.pointerType === "mouse") this.hoverTracking = true;
 
-    this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    this.pointerClient.x = event.clientX;
+    this.pointerClient.y = event.clientY;
 
     // Moving means orbiting, not pressing.
     if (this.touch.pending) {
@@ -368,34 +375,51 @@ export class SceneManager {
       if (moved > 10) this.clearLongPress();
     }
 
-    if (this.hoverTracking && this.hoveredStar) {
-      this.showPreview(this.hoveredStar.userData.entry, event.clientX, event.clientY);
-    }
   }
 
-  entryAt(clientX, clientY) {
-    this.pointer.x = (clientX / window.innerWidth) * 2 - 1;
-    this.pointer.y = -(clientY / window.innerHeight) * 2 + 1;
-    this.raycaster.setFromCamera(this.pointer, this.camera);
+  // Screen-space picking, not a raycast. A raycast against a sprite only hits its actual
+  // geometry, and stars are 3-10 world units, so most of them were effectively unhittable —
+  // especially with a fingertip. Projecting every star and taking the nearest within a pixel
+  // tolerance makes every star reachable, and matches what the user can actually see.
+  pickEntryAt(clientX, clientY, tolerance) {
+    let best = null;
+    let bestDistance = Infinity;
 
-    const hittable = this.diaryStars.filter((s) => (s.userData.currentOpacity ?? 1) > 0.1);
-    const hits = this.raycaster.intersectObjects(hittable, false);
-    return hits.length > 0 ? hits[0].object.userData.entry : null;
+    for (let i = 0; i < this.diaryStars.length; i += 1) {
+      const star = this.diaryStars[i];
+      if ((star.userData.currentOpacity ?? 1) <= 0.1) continue;
+
+      const projected = star.position.clone().project(this.camera);
+      if (projected.z > 1) continue;
+
+      const sx = (projected.x * 0.5 + 0.5) * window.innerWidth;
+      const sy = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+      const distance = Math.hypot(sx - clientX, sy - clientY);
+
+      if (distance <= tolerance && distance < bestDistance) {
+        bestDistance = distance;
+        best = star.userData.entry;
+      }
+    }
+
+    return best;
   }
 
   handlePointerDown(event) {
     if (event.target !== this.renderer.domElement) return;
 
-    // A tap should not open a night until the finger lifts, so a long press can preview instead.
+    // Touch: a tap glimpses, a long press opens. Both are decided on the way up or on the timer,
+    // never on the way down, so a drag can still orbit the sky.
     if (event.pointerType === "touch") {
       this.clearLongPress();
       this.touch.pending = { x: event.clientX, y: event.clientY };
       this.touch.longPressed = false;
-      this.touch.timer = window.setTimeout(() => this.showLongPressPreview(), 380);
+      this.touch.timer = window.setTimeout(() => this.openFromLongPress(), LONG_PRESS_MS);
       return;
     }
 
-    const entry = this.entryAt(event.clientX, event.clientY);
+    // Pointing device: a click opens.
+    const entry = this.pickEntryAt(event.clientX, event.clientY, MOUSE_PICK_PX);
     if (entry && this.onStarSelected) this.onStarSelected(entry);
   }
 
@@ -406,15 +430,25 @@ export class SceneManager {
     const longPressed = this.touch.longPressed;
     this.clearLongPress();
 
-    if (longPressed) {
-      this.clearHover();
-      return;
-    }
+    // The long press already opened the night; the lift means nothing more.
+    if (longPressed || !pending || event.type === "pointercancel") return;
 
-    if (!pending || event.type === "pointercancel") return;
+    // A tap glimpses.
+    const entry = this.pickEntryAt(pending.x, pending.y, TOUCH_PICK_PX);
+    if (entry) this.showPreview(entry, pending.x, pending.y, { autoHide: true });
+    else this.clearHover();
+  }
 
-    const entry = this.entryAt(pending.x, pending.y);
-    if (entry && this.onStarSelected) this.onStarSelected(entry);
+  openFromLongPress() {
+    const pending = this.touch.pending;
+    if (!pending) return;
+
+    this.touch.longPressed = true;
+    const entry = this.pickEntryAt(pending.x, pending.y, TOUCH_PICK_PX);
+    if (!entry) return;
+
+    this.clearHover();
+    if (this.onStarSelected) this.onStarSelected(entry);
   }
 
   clearLongPress() {
@@ -434,8 +468,15 @@ export class SceneManager {
     this.showPreview(entry, pending.x, pending.y);
   }
 
-  // Shared by hover and long press: first 80 characters, then the mood dot and the date.
-  showPreview(entry, clientX, clientY) {
+  // Clamped so the card never hangs off either edge.
+  positionPreview(clientX, clientY) {
+    const clamped = Math.min(Math.max(clientX, 150), window.innerWidth - 150);
+    this.tooltip.style.left = `${clamped}px`;
+    this.tooltip.style.top = `${clientY}px`;
+  }
+
+  // Shared by hover and tap: first 80 characters, then the mood dot and the date.
+  showPreview(entry, clientX, clientY, { autoHide = false } = {}) {
     const cfg = SENTIMENT_CONFIG[entry.sentiment] || SENTIMENT_CONFIG.neutral;
     const when = new Date(entry.createdAt).toLocaleDateString(undefined, {
       day: "numeric",
@@ -447,31 +488,33 @@ export class SceneManager {
       `<span class="preview-meta"><i style="background:${cfg.color};box-shadow:0 0 12px ${cfg.color}"></i>` +
       `${escapeHtml(when)} · ${escapeHtml(cfg.label)}</span>`;
 
-    // Clamped so the card never hangs off either edge.
-    const clamped = Math.min(Math.max(clientX, 150), window.innerWidth - 150);
-    this.tooltip.style.left = `${clamped}px`;
-    this.tooltip.style.top = `${clientY}px`;
+    this.positionPreview(clientX, clientY);
     this.tooltip.style.opacity = "1";
     this.tooltip.setAttribute("aria-hidden", "false");
+
+    window.clearTimeout(this.previewTimer);
+    if (autoHide) {
+      // No pointer-out on touch, so the glimpse fades on its own.
+      this.previewTimer = window.setTimeout(() => this.clearHover(), PREVIEW_HOLD_MS);
+    }
   }
 
   updateHoverState() {
     if (!this.hoverTracking) return;
 
-    this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hittable = this.diaryStars.filter(s => (s.userData.currentOpacity ?? 1) > 0.1);
-    const intersects = this.raycaster.intersectObjects(hittable, false);
+    const entry = this.pickEntryAt(this.pointerClient.x, this.pointerClient.y, MOUSE_PICK_PX);
 
-    if (intersects.length > 0) {
-      this.hoveredStar = intersects[0].object;
-      this.tooltip.style.opacity = "1";
-      this.tooltip.setAttribute("aria-hidden", "false");
+    if (entry) {
+      if (entry !== this.hoveredEntry) {
+        this.hoveredEntry = entry;
+        this.showPreview(entry, this.pointerClient.x, this.pointerClient.y);
+      } else {
+        this.positionPreview(this.pointerClient.x, this.pointerClient.y);
+      }
       document.body.style.cursor = "pointer";
-    } else {
-      this.hoveredStar = null;
-      this.tooltip.style.opacity = "0";
-      this.tooltip.setAttribute("aria-hidden", "true");
-      document.body.style.cursor = "default";
+    } else if (this.hoveredEntry) {
+      this.hoveredEntry = null;
+      this.clearHover();
     }
   }
 
