@@ -113,6 +113,9 @@ export class SceneManager {
     this.driftEnabled = true;
     // Touch has no hover, so a long press is how a phone glimpses a night before opening it.
     this.touch = { pending: null, longPressed: false, timer: null };
+    // Hover tracking is for pointing devices only. A tap parks the pointer on the star it hit,
+    // so leaving hover enabled on touch pins the preview open until the next tap elsewhere.
+    this.hoverTracking = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
     this.starTexture = createGlowTexture(this.THREE);
     this.backgroundField = createBackgroundStarfield(this.THREE, this.quality.backgroundStars);
@@ -352,6 +355,9 @@ export class SceneManager {
   }
 
   handlePointerMove(event) {
+    if (event.pointerType === "touch") this.hoverTracking = false;
+    else if (event.pointerType === "mouse") this.hoverTracking = true;
+
     this.pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -362,7 +368,7 @@ export class SceneManager {
       if (moved > 10) this.clearLongPress();
     }
 
-    if (this.hoveredStar) {
+    if (this.hoverTracking && this.hoveredStar) {
       this.showPreview(this.hoveredStar.userData.entry, event.clientX, event.clientY);
     }
   }
@@ -401,7 +407,7 @@ export class SceneManager {
     this.clearLongPress();
 
     if (longPressed) {
-      window.setTimeout(() => this.clearHover(), 1400);
+      this.clearHover();
       return;
     }
 
@@ -450,6 +456,8 @@ export class SceneManager {
   }
 
   updateHoverState() {
+    if (!this.hoverTracking) return;
+
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hittable = this.diaryStars.filter(s => (s.userData.currentOpacity ?? 1) > 0.1);
     const intersects = this.raycaster.intersectObjects(hittable, false);

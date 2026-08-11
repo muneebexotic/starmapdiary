@@ -1,12 +1,15 @@
+// Reminders are a switch in the log, not a banner over the sky. The nudge itself lives in the
+// composer's placeholder, so nothing here repeats it.
+
 const DEFAULT_REMINDER_TIMES = ["01:00:00", "13:00:00", "19:00:00", "23:00:00"];
+const STATUS_REFRESH_MS = 5 * 60 * 1000;
 
 function isPushSupported() {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
 function isIos() {
-  const ua = navigator.userAgent || "";
-  return /iPad|iPhone|iPod/.test(ua);
+  return /iPad|iPhone|iPod/.test(navigator.userAgent || "");
 }
 
 function isStandalone() {
@@ -16,28 +19,10 @@ function isStandalone() {
 function base64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i += 1) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-function getTodayFirstSlotDate() {
-  const now = new Date();
-  const first = DEFAULT_REMINDER_TIMES[0];
-  const [hh, mm, ss] = first.split(":").map(Number);
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, ss || 0);
-}
-
-function shouldShowReminderBanner(status) {
-  if (!status || !status.enabled) return false;
-  if (status.completedToday) return false;
-
-  const now = new Date();
-  const firstSlot = getTodayFirstSlotDate();
-  return now >= firstSlot;
+  const raw = window.atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
+  return out;
 }
 
 export class ReminderManager {
@@ -45,11 +30,13 @@ export class ReminderManager {
     this.api = api;
     this.elements = elements;
     this.setStatus = setStatus;
-    this.status = null;
-    this.timers = [];
-    this.serviceWorkerRegistration = null;
 
-    this.handleEnablePushClick = this.handleEnablePushClick.bind(this);
+    this.status = null;
+    this.enabled = false;
+    this.timer = null;
+    this.registration = null;
+
+    this.handleSwitchClick = this.handleSwitchClick.bind(this);
   }
 
   async start() {
@@ -59,139 +46,135 @@ export class ReminderManager {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     try {
       await this.api.put("/reminders/settings", { timezone });
-    } catch (_err) {
-      // Non-blocking: user can still use the app without reminders.
+    } catch (_error) {
+      // Non-blocking: the diary works without reminders.
     }
 
+    this.elements.reminderSwitch.addEventListener("click", this.handleSwitchClick);
     await this.refreshStatus();
-    this.attachEvents();
-    this.startTimers();
+    this.timer = window.setInterval(() => this.refreshStatus(), STATUS_REFRESH_MS);
   }
 
   stop() {
     this.status = null;
-    this.detachEvents();
-    this.stopTimers();
-    this.hideBanner();
+    this.enabled = false;
+    this.elements.reminderSwitch.removeEventListener("click", this.handleSwitchClick);
+
+    if (this.timer) {
+      window.clearInterval(this.timer);
+      this.timer = null;
+    }
+
+    this.elements.iosInstallHint.hidden = true;
   }
 
   async onEntrySaved() {
     await this.refreshStatus();
   }
 
-  attachEvents() {
-    this.elements.enablePushBtn.addEventListener("click", this.handleEnablePushClick);
-  }
-
-  detachEvents() {
-    this.elements.enablePushBtn.removeEventListener("click", this.handleEnablePushClick);
-  }
-
-  startTimers() {
-    this.stopTimers();
-
-    this.timers.push(
-      window.setInterval(() => this.render(), 60 * 1000),
-      window.setInterval(() => this.refreshStatus(), 5 * 60 * 1000)
-    );
-  }
-
-  stopTimers() {
-    while (this.timers.length) {
-      window.clearInterval(this.timers.pop());
-    }
-  }
-
   async refreshStatus() {
     if (!this.api.token) return;
     try {
       this.status = await this.api.get("/reminders/status");
-      this.render();
-    } catch (_err) {
-      this.hideBanner();
+    } catch (_error) {
+      this.status = null;
+    }
+    this.render();
+  }
+
+  // On = the server has reminders enabled AND this browser is actually subscribed. Either half
+  // missing means no notification would arrive, so the switch must not claim otherwise.
+  async syncSubscribed() {
+    if (!isPushSupported() || Notification.permission !== "granted") return false;
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+      if (!registration) return false;
+      return Boolean(await registration.pushManager.getSubscription());
+    } catch (_error) {
+      return false;
     }
   }
 
-  render() {
-    if (!shouldShowReminderBanner(this.status)) {
-      this.hideBanner();
-      return;
-    }
+  async render() {
+    const serverEnabled = this.status?.enabled !== false;
+    this.enabled = serverEnabled && (await this.syncSubscribed());
 
-    // The composer placeholder already says tonight is still open, so this speaks only about
-    // notifications — no second nudge.
-    this.elements.reminderText.textContent =
-      "Want a quiet nudge in the evening on nights you have not written?";
-    this.elements.reminderBanner.classList.add("open");
+    this.elements.reminderSwitch.setAttribute("aria-checked", String(this.enabled));
+    this.elements.reminderHint.textContent = this.enabled
+      ? "One notification, late evening."
+      : "Off. Nothing will interrupt you.";
 
-    const pushSupported = isPushSupported();
-    const permission = pushSupported ? Notification.permission : "denied";
-    const shouldShowEnablePush = pushSupported && permission !== "granted";
-    const iosNeedsInstallHint = isIos() && !isStandalone();
-
-    this.elements.enablePushBtn.hidden = !shouldShowEnablePush;
-    this.elements.enablePushBtn.disabled = !shouldShowEnablePush;
-    this.elements.enablePushBtn.textContent = iosNeedsInstallHint
-      ? "Install + Enable Notifications"
-      : "Enable Notifications";
-
-    this.elements.iosInstallHint.hidden = !iosNeedsInstallHint;
+    // Only worth mentioning while they are trying to turn it on.
+    this.elements.iosInstallHint.hidden = !(this.enabled === false && isIos() && !isStandalone());
   }
 
-  hideBanner() {
-    this.elements.reminderBanner.classList.remove("open");
+  async handleSwitchClick() {
+    if (this.enabled) return this.disable();
+    return this.enable();
   }
 
-  async registerServiceWorker() {
-    if (this.serviceWorkerRegistration) return this.serviceWorkerRegistration;
-    if (!("serviceWorker" in navigator)) {
-      throw new Error("Service workers are not supported on this browser.");
-    }
-
-    this.serviceWorkerRegistration = await navigator.serviceWorker.register("/sw.js");
-    return this.serviceWorkerRegistration;
-  }
-
-  async handleEnablePushClick() {
+  async enable() {
     if (!isPushSupported()) {
-      this.setStatus("Push notifications are not supported on this browser.");
+      this.setStatus("This browser cannot deliver reminders.");
       return;
     }
 
     if (Notification.permission === "denied") {
-      this.setStatus("Push permission is blocked in browser settings.");
+      this.setStatus("Notifications are blocked in your browser settings.");
+      return;
+    }
+
+    if (isIos() && !isStandalone()) {
+      this.elements.iosInstallHint.hidden = false;
+      this.setStatus("Add Star Map Diary to your Home Screen first.");
       return;
     }
 
     try {
-      const registration = await this.registerServiceWorker();
+      this.registration = this.registration || (await navigator.serviceWorker.register("/sw.js"));
 
       let permission = Notification.permission;
+      if (permission !== "granted") permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        permission = await Notification.requestPermission();
-      }
-
-      if (permission !== "granted") {
-        this.setStatus("Notification permission not granted.");
+        this.setStatus("Reminders stay off until notifications are allowed.");
         return;
       }
 
       const keyPayload = await this.api.get("/reminders/push/public-key");
-      const applicationServerKey = base64ToUint8Array(keyPayload.publicKey);
-
-      let subscription = await registration.pushManager.getSubscription();
+      let subscription = await this.registration.pushManager.getSubscription();
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
+        subscription = await this.registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey
+          applicationServerKey: base64ToUint8Array(keyPayload.publicKey)
         });
       }
 
       await this.api.post("/reminders/push/subscribe", { subscription: subscription.toJSON() });
-      this.setStatus("Push reminders enabled.");
-      this.render();
+      await this.api.put("/reminders/settings", { enabled: true });
+      await this.refreshStatus();
+      this.setStatus("Reminders on. One notification, late evening.");
     } catch (error) {
-      this.setStatus(error.message || "Failed to enable push reminders.");
+      this.setStatus(error.message || "Could not turn reminders on.");
+    }
+  }
+
+  async disable() {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+      const subscription = registration ? await registration.pushManager.getSubscription() : null;
+
+      if (subscription) {
+        await this.api.post("/reminders/push/unsubscribe", { endpoint: subscription.endpoint });
+        await subscription.unsubscribe();
+      }
+
+      await this.api.put("/reminders/settings", { enabled: false });
+      await this.refreshStatus();
+      this.setStatus("Reminders off. Nothing will interrupt you.");
+    } catch (error) {
+      this.setStatus(error.message || "Could not turn reminders off.");
     }
   }
 }
+
+export { DEFAULT_REMINDER_TIMES };

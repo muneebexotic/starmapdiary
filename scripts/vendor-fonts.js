@@ -15,11 +15,13 @@ const ROOT = path.resolve(__dirname, "..");
 const TARGET = path.join(ROOT, "public", "vendor", "fonts");
 
 const FILES = [
-  // Newsreader — everything the user writes. Italic is needed for the 300 italic in the scale.
-  ["@fontsource-variable/newsreader/files/newsreader-latin-wght-normal.woff2", "newsreader-wght-normal.woff2"],
-  ["@fontsource-variable/newsreader/files/newsreader-latin-wght-italic.woff2", "newsreader-wght-italic.woff2"],
-  // Karla — everything the app says.
-  ["@fontsource-variable/karla/files/karla-latin-wght-normal.woff2", "karla-wght-normal.woff2"]
+  // Newsreader — everything the user writes. The "standard" build carries both the weight and
+  // the optical-size axis; opsz matters here because the scale runs from 17px body to a 32px
+  // wordmark, and that is exactly what optical sizing is for. Italic covers the 300 italic.
+  ["@fontsource-variable/newsreader/files/newsreader-latin-standard-normal.woff2", "newsreader-normal.woff2"],
+  ["@fontsource-variable/newsreader/files/newsreader-latin-standard-italic.woff2", "newsreader-italic.woff2"],
+  // Karla — everything the app says. No optical-size axis exists for it.
+  ["@fontsource-variable/karla/files/karla-latin-wght-normal.woff2", "karla-normal.woff2"]
 ];
 
 function main() {

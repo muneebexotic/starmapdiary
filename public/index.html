@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#02030a" />
   <title>Star Map Diary</title>
-  <link rel="preload" href="/vendor/fonts/newsreader-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="/vendor/fonts/karla-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/vendor/fonts/newsreader-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/vendor/fonts/karla-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles/main.css" />
   <link rel="manifest" href="/manifest.webmanifest" />
 </head>
@@ -26,14 +26,6 @@
     <div id="deck-column">
       <p id="milestone-line" hidden></p>
       <p id="message-line" role="status" aria-live="polite"></p>
-
-      <div id="reminder-banner">
-        <p id="reminder-text"></p>
-        <button id="enable-push-btn" type="button">Turn on nightly reminder</button>
-        <p id="ios-install-hint">
-          On iPhone and iPad, add Star Map Diary to your Home Screen first: tap Share, then Add to Home Screen.
-        </p>
-      </div>
 
       <button id="meta-row" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="log">
         <span id="meta-left">
@@ -117,6 +109,21 @@
         <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
       </button>
     </div>
+
+    <div class="log-row">
+      <span class="log-row-text">
+        <span class="log-row-title">Nightly reminder</span>
+        <span id="reminder-hint" class="log-row-hint"></span>
+      </span>
+      <button id="reminder-switch" type="button" role="switch" aria-checked="false" aria-label="Nightly reminder">
+        <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
+      </button>
+    </div>
+
+    <p id="ios-install-hint" hidden>
+      On iPhone and iPad, add Star Map Diary to your Home Screen first: tap Share, then Add to
+      Home Screen.
+    </p>
 
     <div class="log-row" id="log-account-row">
       <span id="log-account" class="log-row-hint"></span>

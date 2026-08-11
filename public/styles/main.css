@@ -7,7 +7,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 200 800;
-  src: url("/vendor/fonts/newsreader-wght-normal.woff2") format("woff2-variations");
+  src: url("/vendor/fonts/newsreader-normal.woff2") format("woff2-variations");
 }
 
 @font-face {
@@ -15,7 +15,7 @@
   font-style: italic;
   font-display: swap;
   font-weight: 200 800;
-  src: url("/vendor/fonts/newsreader-wght-italic.woff2") format("woff2-variations");
+  src: url("/vendor/fonts/newsreader-italic.woff2") format("woff2-variations");
 }
 
 @font-face {
@@ -23,7 +23,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 200 800;
-  src: url("/vendor/fonts/karla-wght-normal.woff2") format("woff2-variations");
+  src: url("/vendor/fonts/karla-normal.woff2") format("woff2-variations");
 }
 
 /* ── Tokens ──────────────────────────────────────────────────
@@ -82,6 +82,8 @@
 html,
 body {
   margin: 0;
+  /* Newsreader carries an optical-size axis; let the browser use it across the type scale. */
+  font-optical-sizing: auto;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -198,12 +200,7 @@ body.composer-hidden #focus-toggle-btn {
   opacity: 0.4;
 }
 
-body.composer-hidden /* An explicit display beats the user-agent rule for [hidden], so say it outright. */
-#focus-toggle-btn[hidden] {
-  display: none;
-}
-
-.dim-dot {
+body.composer-hidden .dim-dot {
   width: 9px;
   height: 9px;
   border-color: transparent;
@@ -273,52 +270,6 @@ body.composer-hidden #deck {
 
 #milestone-line[hidden] {
   display: none;
-}
-
-/* ── Reminder banner ───────────────────────────────────────── */
-
-#reminder-banner {
-  display: none;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: var(--radius-button);
-  border: 1px solid rgba(245, 201, 106, 0.28);
-  background: rgba(7, 10, 19, 0.6);
-  backdrop-filter: var(--blur-hover);
-}
-
-#reminder-banner.open {
-  display: flex;
-  animation: smd-lift 0.35s var(--ease);
-}
-
-#reminder-text {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--ink-2);
-}
-
-#enable-push-btn {
-  align-self: flex-start;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: var(--radius-button);
-  background: linear-gradient(160deg, #f7d489, #eedcc4);
-  color: #10131c;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow: 0 8px 22px rgba(245, 201, 106, 0.22);
-}
-
-#ios-install-hint {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: rgba(245, 201, 106, 0.86);
 }
 
 /* ── Meta row ──────────────────────────────────────────────── */
@@ -684,6 +635,18 @@ body.composer-hidden #deck {
   color: var(--ink-4);
 }
 
+/* Sits under the reminder row, full width, when iOS needs installing first. */
+#ios-install-hint {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgba(245, 201, 106, 0.86);
+}
+
+#ios-install-hint[hidden] {
+  display: none;
+}
+
 #logout-btn {
   min-height: 44px;
   padding: 0;
@@ -698,7 +661,8 @@ body.composer-hidden #deck {
 
 /* ── Switch ────────────────────────────────────────────────── */
 
-#streak-switch {
+#streak-switch,
+#reminder-switch {
   position: relative;
   flex: 0 0 52px;
   width: 52px;
@@ -730,11 +694,13 @@ body.composer-hidden #deck {
   transition: left 0.28s var(--ease), background 0.28s var(--ease);
 }
 
-#streak-switch[aria-checked="true"] .switch-track {
+#streak-switch[aria-checked="true"] .switch-track,
+#reminder-switch[aria-checked="true"] .switch-track {
   background: rgba(245, 201, 106, 0.9);
 }
 
-#streak-switch[aria-checked="true"] .switch-knob {
+#streak-switch[aria-checked="true"] .switch-knob,
+#reminder-switch[aria-checked="true"] .switch-knob {
   left: 24px;
   background: #12151f;
 }
