@@ -916,6 +916,7 @@ body.composer-hidden #deck {
 
 #auth-mode-btn,
 #auth-resend-btn,
+#auth-signin-btn,
 #auth-back-btn {
   min-height: 44px;
   padding: 0;

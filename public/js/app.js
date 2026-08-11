@@ -41,6 +41,7 @@ const elements = {
   authCheckEmail: document.getElementById("auth-check-email"),
   authCheckOpen: document.getElementById("auth-check-open"),
   authResendBtn: document.getElementById("auth-resend-btn"),
+  authSignInBtn: document.getElementById("auth-signin-btn"),
   authBackBtn: document.getElementById("auth-back-btn"),
   logoutBtn: document.getElementById("logout-btn"),
   logScrim: document.getElementById("log-scrim"),
@@ -154,7 +155,8 @@ function wireEvents() {
   elements.authPrimaryBtn.addEventListener("click", handleAuthSubmit);
   elements.authModeBtn.addEventListener("click", toggleAuthMode);
   elements.authResendBtn.addEventListener("click", handleResend);
-  elements.authBackBtn.addEventListener("click", returnToAuthForm);
+  elements.authSignInBtn.addEventListener("click", () => returnToAuthForm({ mode: "login" }));
+  elements.authBackBtn.addEventListener("click", () => returnToAuthForm({ focus: "email" }));
   elements.logoutBtn.addEventListener("click", handleLogout);
 
   elements.input.addEventListener("input", () => {
@@ -394,19 +396,26 @@ async function handleResend() {
   }
 }
 
-function returnToAuthForm() {
+// Two ways off this screen. Correcting a typo wants the address selected and ready to replace;
+// discovering you already had an account wants the password, with the address left alone.
+function returnToAuthForm({ mode = null, focus = "password" } = {}) {
   window.clearInterval(resendTimer);
   resendRemaining = 0;
   state.authView = "form";
+  if (mode) state.authMode = mode;
 
-  // The likeliest reason to be back here is a typo worth correcting, not an address worth
-  // retyping — so it comes back selected.
   if (state.pendingEmail) elements.emailInput.value = state.pendingEmail;
+  elements.passwordInput.value = "";
 
   renderAuth();
   clearMessage();
-  elements.emailInput.focus();
-  elements.emailInput.select();
+
+  if (focus === "email") {
+    elements.emailInput.focus();
+    elements.emailInput.select();
+    return;
+  }
+  elements.passwordInput.focus();
 }
 
 function handleLogout() {
