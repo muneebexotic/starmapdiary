@@ -60,19 +60,42 @@
         A private diary. Each night you write becomes a star, and nights in a row are drawn into
         a constellation.
       </p>
-      <div id="auth-fields">
-        <label class="auth-field">
-          <span class="auth-label">Email</span>
-          <input id="email-input" type="email" autocomplete="email" />
-        </label>
-        <label class="auth-field">
-          <span class="auth-label">Password</span>
-          <input id="password-input" type="password" autocomplete="current-password" />
-        </label>
+      <div id="auth-form">
+        <div id="auth-fields">
+          <label class="auth-field">
+            <span class="auth-label">Email</span>
+            <input id="email-input" type="email" autocomplete="email" inputmode="email"
+                   autocapitalize="none" spellcheck="false" />
+          </label>
+          <label class="auth-field">
+            <span class="auth-label">Password</span>
+            <input id="password-input" type="password" autocomplete="current-password" />
+            <span id="password-hint" class="auth-hint" hidden>At least 6 characters.</span>
+          </label>
+        </div>
+        <button id="auth-primary-btn" type="button">Begin</button>
       </div>
-      <button id="auth-primary-btn" type="button">Begin</button>
+
+      <!-- Sign-up doesn't end at the button: it ends in an inbox. This says so, on the page,
+           instead of leaving the reader to guess where their account went. -->
+      <div id="auth-check" hidden>
+        <p id="auth-check-title">Check your email.</p>
+        <p id="auth-check-body">
+          A confirmation link is on its way to <b id="auth-check-email"></b>. Open it and you'll
+          come back here already signed in.
+        </p>
+        <a id="auth-check-open" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+        <p id="auth-check-note">
+          Nothing after a minute or two? Look in spam or promotions — then send it again.
+        </p>
+        <div id="auth-check-foot">
+          <button id="auth-resend-btn" type="button">Send it again</button>
+          <button id="auth-back-btn" type="button">Use a different email</button>
+        </div>
+      </div>
+
       <div id="auth-foot">
-        <p id="auth-status">Not signed in.</p>
+        <p id="auth-status" role="status" aria-live="polite"></p>
         <button id="auth-mode-btn" type="button">I already have an account</button>
       </div>
     </div>

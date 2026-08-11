@@ -16,6 +16,7 @@ This setup uses:
 2. Fill values:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
+   - `PUBLIC_SITE_URL` (where confirmation emails land — see "Email confirmation" below)
    - `SUPABASE_SERVICE_ROLE_KEY` (required for cron reminder dispatch)
    - `SUPABASE_PROJECT_REF`
    - `SUPABASE_ACCESS_TOKEN` (for MCP tooling)
@@ -78,6 +79,36 @@ from the "Show streaks" link in the date filter panel.
 
 Set `STREAK_GRACE_ENABLED=false` to disable automatic rest days and use strict
 consecutive-day counting.
+
+## Email confirmation
+
+A new account is held by Supabase until its address is confirmed, so sign-up finishes in an
+inbox rather than on the page. Three things have to agree or the link goes somewhere useless:
+
+1. `PUBLIC_SITE_URL` in this app's environment — sent as `emailRedirectTo` on signup and resend.
+2. **Site URL** in Supabase → Authentication → URL Configuration — the fallback when a request
+   carries no redirect, and the source of the `http://localhost:3000` links you get by default.
+3. **Redirect URLs** in the same screen — an allow-list. A `emailRedirectTo` that isn't listed
+   is silently ignored in favour of the Site URL, which is why a correct `PUBLIC_SITE_URL` can
+   still appear to do nothing.
+
+The link is verified by Supabase, which then redirects to the site with the finished session in
+the URL fragment (implicit flow — `src/lib/supabase.js` pins `flowType: "implicit"` because the
+sign-up call happens on this server while the link is opened in the reader's browser, so a PKCE
+verifier would have nowhere to meet its code). `readAuthHandoff()` in `public/js/app.js` reads
+that fragment, wipes it from the address bar, and boots straight into a signed-in app.
+
+- `POST /api/auth/signup` returns `{ confirmationSent: true, session: null }` when the address
+  needs confirming. An already-registered address returns exactly the same shape, so sign-up
+  can't be used to test which addresses have accounts.
+- `POST /api/auth/login` returns `403 { needsConfirmation: true }` for an unconfirmed address
+  rather than a generic 401, so the client can offer another mail instead of a dead end.
+- `POST /api/auth/resend-confirmation` sends another link. It reports success for everything
+  except a rate limit, for the same privacy reason as signup.
+
+Supabase's built-in SMTP only delivers to addresses on the project's team and is capped at a
+couple of messages an hour. Configure custom SMTP before real users sign up, or their
+confirmation mail is never sent at all.
 
 ## 4) Supabase MCP
 Installed package:

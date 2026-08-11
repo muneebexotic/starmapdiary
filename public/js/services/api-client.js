@@ -124,7 +124,13 @@ export class ApiClient {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || "Request failed.");
+      // Some failures are really instructions — an unconfirmed sign-in wants a "check your
+      // inbox" screen, not an error line — so the body travels with the error rather than being
+      // flattened down to its message.
+      const failure = new Error(payload.error || "Request failed.");
+      failure.status = response.status;
+      failure.payload = payload;
+      throw failure;
     }
 
     return payload;

@@ -9,6 +9,7 @@ import { classifySentiment } from "./features/sentiment.js";
 import { ReminderManager } from "./features/reminders.js";
 import { StreakManager } from "./features/streaks.js";
 import { ApiClient } from "./services/api-client.js";
+import { parseAuthHandoff } from "./services/auth-handoff.js";
 import { SceneManager } from "./three/scene-manager.js";
 
 const elements = {
@@ -28,11 +29,19 @@ const elements = {
   reminderHint: document.getElementById("reminder-hint"),
   iosInstallHint: document.getElementById("ios-install-hint"),
   authPanel: document.getElementById("auth-panel"),
+  authBlurb: document.getElementById("auth-blurb"),
+  authForm: document.getElementById("auth-form"),
   emailInput: document.getElementById("email-input"),
   passwordInput: document.getElementById("password-input"),
+  passwordHint: document.getElementById("password-hint"),
   authPrimaryBtn: document.getElementById("auth-primary-btn"),
   authModeBtn: document.getElementById("auth-mode-btn"),
   authStatus: document.getElementById("auth-status"),
+  authCheck: document.getElementById("auth-check"),
+  authCheckEmail: document.getElementById("auth-check-email"),
+  authCheckOpen: document.getElementById("auth-check-open"),
+  authResendBtn: document.getElementById("auth-resend-btn"),
+  authBackBtn: document.getElementById("auth-back-btn"),
   logoutBtn: document.getElementById("logout-btn"),
   logScrim: document.getElementById("log-scrim"),
   log: document.getElementById("log"),
@@ -70,17 +79,43 @@ const api = new ApiClient({
 const DIM_STORAGE_KEY = "star_map_diary_focus_mode_v1";
 const FIRST_RUN_KEY = "star_map_diary_focus_tip_seen_v1";
 const MESSAGE_HOLD_MS = 5200;
+// Matches "Minimum interval per user" in the project's SMTP settings. Counting down to zero any
+// sooner would arm the button while Supabase is still refusing to send, which reads as a bug in
+// the app rather than a wait. Raise both together or neither.
+const RESEND_COOLDOWN_SECONDS = 60;
+
+// Where a recognised provider keeps its inbox. The gap between "we sent a link" and reading it
+// is where sign-ups are lost, so the ones we know get a door rather than an instruction.
+const INBOX_LINKS = {
+  "gmail.com": { label: "Open Gmail", url: "https://mail.google.com/mail/u/0/" },
+  "googlemail.com": { label: "Open Gmail", url: "https://mail.google.com/mail/u/0/" },
+  "outlook.com": { label: "Open Outlook", url: "https://outlook.live.com/mail/0/" },
+  "hotmail.com": { label: "Open Outlook", url: "https://outlook.live.com/mail/0/" },
+  "live.com": { label: "Open Outlook", url: "https://outlook.live.com/mail/0/" },
+  "yahoo.com": { label: "Open Yahoo Mail", url: "https://mail.yahoo.com/" },
+  "icloud.com": { label: "Open iCloud Mail", url: "https://www.icloud.com/mail/" },
+  "me.com": { label: "Open iCloud Mail", url: "https://www.icloud.com/mail/" },
+  "proton.me": { label: "Open Proton Mail", url: "https://mail.proton.me/" },
+  "protonmail.com": { label: "Open Proton Mail", url: "https://mail.proton.me/" }
+};
 
 const state = {
   activeUser: null,
   reading: null,
   dimmed: false,
   logOpen: false,
-  authMode: "signup"
+  signedIn: false,
+  authMode: "signup",
+  // "form" while there is something to type, "check" while there is a link to go and open.
+  authView: "form",
+  authBusy: false,
+  pendingEmail: ""
 };
 
 let messageTimer = null;
 let firstRunTimers = [];
+let resendTimer = null;
+let resendRemaining = 0;
 
 const scene = new SceneManager({
   container: elements.app,
@@ -118,6 +153,8 @@ function wireEvents() {
 
   elements.authPrimaryBtn.addEventListener("click", handleAuthSubmit);
   elements.authModeBtn.addEventListener("click", toggleAuthMode);
+  elements.authResendBtn.addEventListener("click", handleResend);
+  elements.authBackBtn.addEventListener("click", returnToAuthForm);
   elements.logoutBtn.addEventListener("click", handleLogout);
 
   elements.input.addEventListener("input", () => {
@@ -129,9 +166,11 @@ function wireEvents() {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") handleSubmit();
   });
 
-  elements.passwordInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") handleAuthSubmit();
-  });
+  for (const field of [elements.emailInput, elements.passwordInput]) {
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") handleAuthSubmit();
+    });
+  }
 
   elements.readerClose.addEventListener("click", closeReader);
   elements.readerPrev.addEventListener("click", () => stepReader(-1));
@@ -167,10 +206,16 @@ async function bootstrap() {
   syncSendState();
   renderMetaDate();
 
+  // A confirmation link lands back here carrying the finished session. Reading it before
+  // anything else is what turns "now go and sign in" into simply being signed in.
+  const handoff = readAuthHandoff();
+  if (handoff?.session) api.setSession(handoff.session);
+
   // An expired access token is no longer a reason to stay out: the refresh token alone is
   // enough for the client to renew on the first authed call below.
   if (!api.token && !api.refreshToken) {
     setSignedInState(false);
+    if (handoff?.error) setMessage(handoff.error, { alert: true });
     return;
   }
 
@@ -182,23 +227,52 @@ async function bootstrap() {
     await reminders.start();
     await streaks.start();
     syncPlaceholder(Boolean(streaks.status?.todayLogged));
-    startFirstRun();
+
+    const justConfirmed = handoff?.type === "signup";
+    if (justConfirmed) setMessage("Email confirmed. This sky is yours — start it tonight.");
+    // Otherwise the first tip would wipe that line about a second after it appeared.
+    startFirstRun({ delay: justConfirmed ? MESSAGE_HOLD_MS : 0 });
   } catch (_error) {
     endSession();
-    setMessage("That session has expired. Sign in to carry on.");
+    setMessage("That session has expired. Sign in to carry on.", { alert: true });
   }
 }
 
 // ── Auth ─────────────────────────────────────────────────────
 
-function toggleAuthMode() {
-  state.authMode = state.authMode === "signup" ? "login" : "signup";
-  renderAuthMode();
+// The fragment is read once and wiped from the address bar, so a live session doesn't linger in
+// history or travel with a copied link.
+function readAuthHandoff() {
+  const handoff = parseAuthHandoff(window.location.hash);
+  if (handoff) {
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+  return handoff;
 }
 
-function renderAuthMode() {
+function toggleAuthMode() {
+  state.authMode = state.authMode === "signup" ? "login" : "signup";
+  // The address carries over — retyping it is pure friction — but the password does not: it was
+  // typed against the other mode's rules, and a stale one only buys a confusing failure.
+  elements.passwordInput.value = "";
+  renderAuth();
+  clearMessage();
+  // Land on whichever field is still empty, so switching modes doesn't raise a phone keyboard
+  // over a field that has nothing left to type into it.
+  (elements.emailInput.value.trim() ? elements.passwordInput : elements.emailInput).focus();
+}
+
+function renderAuth() {
+  const waiting = state.authView === "check";
   const signup = state.authMode === "signup";
+
+  elements.authBlurb.hidden = waiting;
+  elements.authForm.hidden = waiting;
+  elements.authCheck.hidden = !waiting;
+  elements.authModeBtn.hidden = waiting;
+
   elements.authPrimaryBtn.textContent = signup ? "Begin" : "Return";
+  elements.passwordHint.hidden = !signup;
   elements.authModeBtn.textContent = signup
     ? "I already have an account"
     : "Create an account instead";
@@ -209,21 +283,29 @@ function renderAuthMode() {
 }
 
 async function handleAuthSubmit() {
+  if (state.authBusy || state.authView === "check") return;
+
   const email = elements.emailInput.value.trim();
   const password = elements.passwordInput.value;
 
   if (!email || !password) {
-    setMessage("An email and a password, and you're in.");
+    setMessage("An email and a password, and you're in.", { alert: true });
     return;
   }
 
-  const path = state.authMode === "signup" ? "/auth/signup" : "/auth/login";
+  const signup = state.authMode === "signup";
+  setAuthBusy(true, signup ? "Sending the link…" : "Returning…");
 
   try {
-    const response = await api.post(path, { email, password }, { auth: false });
+    const response = await api.post(
+      signup ? "/auth/signup" : "/auth/login",
+      { email, password },
+      { auth: false }
+    );
 
+    // No session means Supabase is holding the account until the address is confirmed.
     if (!response.session?.access_token) {
-      setMessage("Confirm your email, then return here to sign in.");
+      showCheckInbox(response.email || email);
       return;
     }
 
@@ -235,10 +317,96 @@ async function handleAuthSubmit() {
     await loadEntriesFromServer();
     await reminders.start();
     await streaks.start();
+    syncPlaceholder(Boolean(streaks.status?.todayLogged));
     startFirstRun();
   } catch (error) {
-    setMessage(error.message);
+    // An unconfirmed address isn't a failed sign-in; it's a sign-up that never finished. Sending
+    // it to the same screen as a wrong password would strand someone whose password is correct.
+    if (error.payload?.needsConfirmation) {
+      showCheckInbox(error.payload.email || email);
+      return;
+    }
+    setMessage(error.message, { alert: true });
+  } finally {
+    setAuthBusy(false);
   }
+}
+
+function setAuthBusy(busy, label) {
+  state.authBusy = busy;
+  elements.authPrimaryBtn.setAttribute("aria-disabled", String(busy));
+  if (busy && label) elements.authPrimaryBtn.textContent = label;
+  else renderAuth();
+}
+
+// ── Waiting on the inbox ─────────────────────────────────────
+
+function showCheckInbox(email) {
+  state.authView = "check";
+  state.pendingEmail = email;
+  // The password has done its work, and this screen can sit open for a while.
+  elements.passwordInput.value = "";
+
+  elements.authCheckEmail.textContent = email;
+
+  const inbox = INBOX_LINKS[email.split("@")[1]?.toLowerCase()];
+  elements.authCheckOpen.hidden = !inbox;
+  if (inbox) {
+    elements.authCheckOpen.textContent = inbox.label;
+    elements.authCheckOpen.href = inbox.url;
+  }
+
+  renderAuth();
+  clearMessage();
+  // A mail has just gone out, so the wait starts now rather than on the first press.
+  startResendCooldown();
+}
+
+function startResendCooldown() {
+  window.clearInterval(resendTimer);
+  resendRemaining = RESEND_COOLDOWN_SECONDS;
+  renderResendButton();
+
+  resendTimer = window.setInterval(() => {
+    resendRemaining -= 1;
+    renderResendButton();
+    if (resendRemaining <= 0) window.clearInterval(resendTimer);
+  }, 1000);
+}
+
+function renderResendButton() {
+  const waiting = resendRemaining > 0;
+  elements.authResendBtn.textContent = waiting
+    ? `Send it again in ${resendRemaining}s`
+    : "Send it again";
+  elements.authResendBtn.setAttribute("aria-disabled", String(waiting));
+}
+
+async function handleResend() {
+  if (resendRemaining > 0 || !state.pendingEmail) return;
+
+  try {
+    await api.post("/auth/resend-confirmation", { email: state.pendingEmail }, { auth: false });
+    setMessage("Sent again. Give it a minute.");
+    startResendCooldown();
+  } catch (error) {
+    setMessage(error.message, { alert: true });
+  }
+}
+
+function returnToAuthForm() {
+  window.clearInterval(resendTimer);
+  resendRemaining = 0;
+  state.authView = "form";
+
+  // The likeliest reason to be back here is a typo worth correcting, not an address worth
+  // retyping — so it comes back selected.
+  if (state.pendingEmail) elements.emailInput.value = state.pendingEmail;
+
+  renderAuth();
+  clearMessage();
+  elements.emailInput.focus();
+  elements.emailInput.select();
 }
 
 function handleLogout() {
@@ -257,18 +425,24 @@ function endSession() {
 }
 
 function setSignedInState(signedIn) {
+  state.signedIn = signedIn;
   elements.authPanel.hidden = signedIn;
   elements.deck.hidden = !signedIn;
   elements.focusToggleBtn.hidden = !signedIn;
 
   const email = state.activeUser?.email;
-  elements.authStatus.textContent = signedIn && email ? `Signed in as ${email}` : "Not signed in.";
   elements.logAccount.textContent = email ? `Signed in as ${email}` : "";
 
-  if (!signedIn) {
-    renderAuthMode();
-    clearMessage();
+  if (signedIn) {
+    // Nothing is pending any more, and the next sign-out should open on the form.
+    window.clearInterval(resendTimer);
+    state.authView = "form";
+    state.pendingEmail = "";
+    return;
   }
+
+  renderAuth();
+  clearMessage();
 }
 
 // ── Entries ──────────────────────────────────────────────────
@@ -482,15 +656,35 @@ function renderMetaDate() {
 
 // ── The single message channel ────────────────────────────────
 
-function setMessage(message) {
-  elements.messageLine.textContent = message || "";
+// The deck is hidden while signed out, so anything written to its message line would land in a
+// hidden element — which is how every sign-up error used to disappear without a trace. Signed
+// out, the auth panel carries the same single channel.
+function setMessage(message, { alert = false } = {}) {
   window.clearTimeout(messageTimer);
-  if (message) messageTimer = window.setTimeout(clearMessage, MESSAGE_HOLD_MS);
+
+  if (state.signedIn) {
+    elements.messageLine.textContent = message || "";
+    if (message) messageTimer = window.setTimeout(clearMessage, MESSAGE_HOLD_MS);
+    return;
+  }
+
+  // Signed out there is nothing else on screen to move on to, so the line holds until something
+  // replaces it rather than timing out while it is still the only instruction on the page.
+  elements.authStatus.textContent = message || restingAuthHint();
+  elements.authStatus.classList.toggle("is-alert", Boolean(message) && alert);
 }
 
 function clearMessage() {
   window.clearTimeout(messageTimer);
   elements.messageLine.textContent = "";
+  elements.authStatus.textContent = restingAuthHint();
+  elements.authStatus.classList.remove("is-alert");
+}
+
+// Saying a link is coming before the button is pressed is what stops the mail being a surprise.
+function restingAuthHint() {
+  if (state.signedIn || state.authView === "check") return "";
+  return state.authMode === "signup" ? "We'll email one link to confirm it's you." : "";
 }
 
 // ── Hide the interface ───────────────────────────────────────
@@ -520,24 +714,27 @@ function applyDim(dimmed, { persist = true } = {}) {
 // ── First run ────────────────────────────────────────────────
 // Three beats through the shared message line. Nothing permanent, nothing that can collide.
 
-function startFirstRun() {
+function startFirstRun({ delay = 0 } = {}) {
   if (readFlag(FIRST_RUN_KEY)) return;
 
   const touch = navigator.maxTouchPoints > 0;
   firstRunTimers = [
     window.setTimeout(
       () => setMessage(touch ? "Drag to orbit. Pinch to zoom." : "Drag to orbit. Scroll to zoom."),
-      900
+      delay + 900
     ),
     window.setTimeout(
       () =>
         setMessage(
           touch ? "Tap a star to read that night." : "Hover a star to glimpse it. Click to read it."
         ),
-      4600
+      delay + 4600
     ),
-    window.setTimeout(() => setMessage("Hide everything from the dot up there, and just look."), 8600),
-    window.setTimeout(() => endFirstRun(), 14000)
+    window.setTimeout(
+      () => setMessage("Hide everything from the dot up there, and just look."),
+      delay + 8600
+    ),
+    window.setTimeout(() => endFirstRun(), delay + 14000)
   ];
 }
 
