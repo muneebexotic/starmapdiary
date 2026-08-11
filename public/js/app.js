@@ -1,4 +1,9 @@
-import { API_BASE, AUTH_TOKEN_KEY, ENTRY_MAX_LENGTH } from "./config/constants.js";
+import {
+  API_BASE,
+  AUTH_REFRESH_TOKEN_KEY,
+  AUTH_TOKEN_KEY,
+  ENTRY_MAX_LENGTH
+} from "./config/constants.js";
 import { SENTIMENT_CONFIG } from "./config/sentiment.js";
 import { classifySentiment } from "./features/sentiment.js";
 import { ReminderManager } from "./features/reminders.js";
@@ -54,7 +59,13 @@ const elements = {
   readerNext: document.getElementById("reader-next")
 };
 
-const api = new ApiClient({ baseUrl: API_BASE, authTokenKey: AUTH_TOKEN_KEY });
+const api = new ApiClient({
+  baseUrl: API_BASE,
+  authTokenKey: AUTH_TOKEN_KEY,
+  refreshTokenKey: AUTH_REFRESH_TOKEN_KEY,
+  // Fires only once a refresh has been refused, so reaching here really is the end of the session.
+  onAuthLost: () => endSession()
+});
 
 const DIM_STORAGE_KEY = "star_map_diary_focus_mode_v1";
 const FIRST_RUN_KEY = "star_map_diary_focus_tip_seen_v1";
@@ -156,7 +167,9 @@ async function bootstrap() {
   syncSendState();
   renderMetaDate();
 
-  if (!api.token) {
+  // An expired access token is no longer a reason to stay out: the refresh token alone is
+  // enough for the client to renew on the first authed call below.
+  if (!api.token && !api.refreshToken) {
     setSignedInState(false);
     return;
   }
@@ -171,11 +184,7 @@ async function bootstrap() {
     syncPlaceholder(Boolean(streaks.status?.todayLogged));
     startFirstRun();
   } catch (_error) {
-    api.clearToken();
-    state.activeUser = null;
-    reminders.stop();
-    streaks.stop();
-    setSignedInState(false);
+    endSession();
     setMessage("That session has expired. Sign in to carry on.");
   }
 }
@@ -218,7 +227,7 @@ async function handleAuthSubmit() {
       return;
     }
 
-    api.token = response.session.access_token;
+    api.setSession(response.session);
     state.activeUser = response.user || null;
     elements.passwordInput.value = "";
 
@@ -233,6 +242,11 @@ async function handleAuthSubmit() {
 }
 
 function handleLogout() {
+  endSession();
+}
+
+// Signing out and being signed out land in the same place; only the message differs.
+function endSession() {
   api.clearToken();
   state.activeUser = null;
   closeLog();
